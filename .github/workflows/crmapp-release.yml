@@ -1,0 +1,123 @@
+name: OlondongeApp Release
+
+on:
+  push:
+    tags:
+      - "olondongeapp/v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: olondongeapp-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android_playstore:
+    name: Android (AAB) -> Google Play
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      PROJECT_PATH: OlondongeApp.csproj
+      FRAMEWORK: net10.0-android
+      CONFIGURATION: Release
+      # Mesmo caminho que na pasta da app (local + CI); o .keystore real não vai para o Git.
+      ANDROID_SIGNING_KEYSTORE_DIR: Keystore/crmtic-upload
+      ANDROID_SIGNING_KEYSTORE_FILENAME: crmtic-upload.keystore
+      PACKAGE_NAME: ${{ secrets.GOOGLE_PLAY_PACKAGE_NAME }}
+      # Fallback seguro se o secret não existir (corresponde ao ApplicationId atual no csproj)
+      DEFAULT_PACKAGE_NAME: com.companyname.olondongeapp
+      PLAY_TRACK: internal
+      # Evita XA0035 no Ubuntu (RID do host linux-x64 não é válido para Android).
+      ANDROID_RID: android-arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute versions from tag
+        id: versions
+        run: |
+          TAG="${GITHUB_REF_NAME}" # ex: olondongeapp/v1.4.0
+          VERSION="${TAG#olondongeapp/v}" # 1.4.0
+          BUILD="${GITHUB_RUN_NUMBER}" # inteiro crescente
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "package_name=${PACKAGE_NAME:-$DEFAULT_PACKAGE_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET
+        uses: ./.github/actions/maui-ci-setup
+        with:
+          workload: maui-android
+          java-version: "17"
+          dotnet-version: "10.0.x"
+
+      # Só Android: evita NETSDK1178 (iOS/Mac) no Linux.
+      # Um RID explícito evita NETSDK1083 (lista com ';' como RID único) e NETSDK1047.
+      - name: Restore (Android TFM, RID único)
+        run: |
+          dotnet restore "${PROJECT_PATH}" \
+            /p:TargetFrameworks="${FRAMEWORK}" \
+            /p:RuntimeIdentifiers="${ANDROID_RID}" \
+            /p:RuntimeIdentifier="${ANDROID_RID}"
+
+      - name: Decode Android keystore into app Keystore folder
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="${ANDROID_SIGNING_KEYSTORE_DIR}/${ANDROID_SIGNING_KEYSTORE_FILENAME}"
+          mkdir -p "${ANDROID_SIGNING_KEYSTORE_DIR}"
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "${KEYSTORE_PATH}"
+
+      - name: Publish AAB (Release, signed)
+        run: >
+          dotnet publish "${PROJECT_PATH}"
+          -c "${CONFIGURATION}"
+          -f "${FRAMEWORK}"
+          -r "${ANDROID_RID}"
+          /p:RuntimeIdentifiers=${{ env.ANDROID_RID }}
+          /p:RuntimeIdentifier=${{ env.ANDROID_RID }}
+          /p:AndroidPackageFormat=aab
+          /p:ApplicationDisplayVersion=${{ steps.versions.outputs.version }}
+          /p:ApplicationVersion=${{ steps.versions.outputs.build }}
+          /p:AndroidKeyStore=true
+          /p:AndroidSigningKeyStore=${{ env.ANDROID_SIGNING_KEYSTORE_DIR }}/${{ env.ANDROID_SIGNING_KEYSTORE_FILENAME }}
+          /p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          /p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          /p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Locate AAB
+        id: aab
+        run: |
+          AAB="$(ls -1 bin/Release/net10.0-android/*/*.aab 2>/dev/null | head -n 1 || true)"
+          if [ -z "$AAB" ]; then
+            AAB="$(ls -1 bin/Release/net10.0-android/*.aab 2>/dev/null | head -n 1 || true)"
+          fi
+          if [ -z "$AAB" ]; then
+            echo "Não foi possível localizar o .aab em bin/Release/net10.0-android"
+            exit 1
+          fi
+          echo "path=$AAB" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact (AAB)
+        uses: actions/upload-artifact@v4
+        with:
+          name: olondongeapp-android-aab-signed-${{ steps.versions.outputs.version }}+${{ steps.versions.outputs.build }}
+          path: ${{ steps.aab.outputs.path }}
+
+      - name: "Upload to Google Play (track: internal)"
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ steps.versions.outputs.package_name }}
+          releaseFiles: ${{ steps.aab.outputs.path }}
+          track: ${{ env.PLAY_TRACK }}
+          status: completed
+
+  microsoft_store_disabled:
+    name: Windows -> Microsoft Store (DISABLED)
+    runs-on: windows-latest
+    if: false
+    steps:
+      - name: Disabled
+        run: echo "Deploy para Microsoft Store está desabilitado por agora."

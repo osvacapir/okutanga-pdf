@@ -1,0 +1,209 @@
+@page "/login"
+@layout OlondongeApp.Components.Layout.EmptyLayout
+@using Microsoft.Maui.Networking
+@inject IAuthService Auth
+@inject NavigationManager Navigation
+@inject ILogger<Login> Logger
+
+<PageTitle>Login - Olondonge</PageTitle>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo logo-bg-white">
+                <BrandLogoImg Alt="Logo Olondonge"
+                              Loading="lazy" />
+            </div>
+            <h1>Olondonge</h1>
+            <p class="subtitle">Sistema de Gestão Escolar - Estudante</p>
+        </div>
+
+        <EditForm Model="@loginRequest" OnValidSubmit="@HandleLogin" class="login-form">
+            <DataAnnotationsValidator />
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger" role="alert" aria-live="polite">
+                    <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                    <span>@errorMessage</span>
+                </div>
+            }
+
+            <div class="form-group">
+                <label for="loginIdentifier" class="form-label">
+                    <i class="bi bi-person-vcard"></i> Nº de Processo ou Bilhete
+                </label>
+                <InputText id="loginIdentifier"
+                           @bind-Value="loginRequest.LoginIdentifier"
+                           class="form-control"
+                           placeholder="Digite o nº de processo ou o nº do bilhete"
+                           disabled="@isLoading"
+                           autocomplete="username" />
+                <ValidationMessage For="@(() => loginRequest.LoginIdentifier)" class="validation-message" />
+            </div>
+
+            <div class="form-group">
+                <label for="password" class="form-label">
+                    <i class="bi bi-lock"></i> Palavra-passe
+                </label>
+                <div class="password-input-wrapper">
+                    <InputText id="password"
+                               @bind-Value="loginRequest.Password"
+                               type="@passwordInputType"
+                               class="form-control"
+                               placeholder="Digite sua palavra-passe"
+                               disabled="@isLoading"
+                               autocomplete="current-password" />
+                    <button type="button"
+                            class="btn-toggle-password"
+                            @onclick="TogglePasswordVisibility"
+                            disabled="@isLoading"
+                            title="@(showPassword ? "Ocultar" : "Mostrar") palavra-passe">
+                        <i class="bi bi-eye@(showPassword ? "-slash" : "")"></i>
+                    </button>
+                </div>
+                <ValidationMessage For="@(() => loginRequest.Password)" class="validation-message" />
+            </div>
+
+            <div class="form-check mb-3">
+                <InputCheckbox id="rememberMe"
+                               @bind-Value="rememberMe"
+                               class="form-check-input"
+                               disabled="@isLoading" />
+                <label class="form-check-label" for="rememberMe">
+                    Lembrar-me neste dispositivo
+                </label>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit"
+                        class="btn btn-primary btn-login"
+                        disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        <span>A entrar...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-box-arrow-in-right me-2"></i>
+                        <span>Entrar</span>
+                    }
+                </button>
+            </div>
+        </EditForm>
+
+        <div class="login-footer">
+            <hr class="divider" />
+            <div class="register-link">
+                <span>Precisa de ajuda?</span>
+                <a class="link-primary disabled" style="pointer-events: none; opacity: 0.6;" aria-disabled="true">
+                    <strong>Contacte a secretaria</strong>
+                </a>
+            </div>
+        </div>
+
+        <div class="version-info">
+            <small class="text-muted">
+                Versão 1.0.0 · Desenvolvido pela <a href="https://vosikola.com" target="_blank" rel="noopener noreferrer">Zetabyte</a> · vosikola.com
+            </small>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginRequest = new();
+    private bool isLoading = false;
+    private bool rememberMe = false;
+    private bool showPassword = false;
+    private string errorMessage = string.Empty;
+    private string passwordInputType => showPassword ? "text" : "password";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        if (Auth.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/home", replace: true);
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        showPassword = !showPassword;
+    }
+
+    private async Task HandleLogin()
+    {
+        errorMessage = string.Empty;
+        isLoading = true;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(loginRequest.LoginIdentifier) || string.IsNullOrWhiteSpace(loginRequest.Password))
+            {
+                errorMessage = "Preencha o utilizador e a palavra-passe.";
+                return;
+            }
+
+            var idLen = loginRequest.LoginIdentifier.Trim().Length;
+            Logger.LogInformation("Tentativa de login estudante (comprimento identificador={Len})", idLen);
+            var result = await Auth.LoginAsync(loginRequest.LoginIdentifier, loginRequest.Password);
+
+            if (result.Success)
+            {
+                // Dados académicos só após «Sincronizar» (⟳) — evita tráfego API ao abrir a Home.
+                Navigation.NavigateTo("/home", replace: true);
+            }
+            else
+            {
+                errorMessage = ResolveUserMessage(result.Reason);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro inesperado no login do estudante");
+            errorMessage = "Serviço indisponível. Tente novamente mais tarde.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    /// <summary>UI sem detalhes técnicos: três mensagens curtas e claras conforme o motivo.</summary>
+    private static string ResolveUserMessage(LoginFailureReason reason)
+    {
+        return reason switch
+        {
+            LoginFailureReason.InvalidCredentials => "Utilizador ou palavra-passe inválidos.",
+            LoginFailureReason.Network => HasInternetAccess()
+                ? "Serviço indisponível. Tente novamente mais tarde."
+                : "Sem ligação à Internet. Active os dados ou Wi-Fi e tente novamente.",
+            LoginFailureReason.ServiceUnavailable => "Serviço indisponível. Tente novamente mais tarde.",
+            _ => "Não foi possível entrar. Tente novamente.",
+        };
+    }
+
+    private static bool HasInternetAccess()
+    {
+        try
+        {
+            return Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
+        }
+        catch
+        {
+            // Em alguns ambientes (ex.: testes/WebView fora do MAUI) o serviço pode não estar disponível.
+            return true;
+        }
+    }
+
+    private sealed class LoginRequest
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Indique o nº de processo ou o bilhete.")]
+        public string LoginIdentifier { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Indique a palavra-passe.")]
+        public string Password { get; set; } = string.Empty;
+    }
+}

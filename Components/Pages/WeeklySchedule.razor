@@ -1,0 +1,459 @@
+@page "/horario"
+@implements IDisposable
+@inject IAuthService Auth
+@inject IGradesLocalStore Store
+@inject IStudentAcademicOverviewService Overview
+@inject IGradesSyncService Sync
+@inject NavigationManager Nav
+@using System.Text.Json
+@using OlondongeApp.Components.Shared
+@using OlondongeApp.Models.Dtos
+@using OlondongeApp.Services
+
+<PageTitle>Horário — Olondonge</PageTitle>
+
+@if (!_ready)
+{
+    <LoadingSkeleton Variant="LoadingSkeleton.LoadingSkeletonVariant.Table" Items="5" />
+}
+else if (!Auth.IsAuthenticated)
+{
+    <p>A redirecionar…</p>
+}
+else
+{
+    <div class="ol-grades-header-card">
+        <PageHeader Title="Horário semanal"
+                    ShowBack="true"
+                    BackHref="/home"
+                    FallbackBackHref="/home" />
+    </div>
+
+    @if (_slots.Count == 0)
+    {
+        <EmptyState Title="Sem horário disponível"
+                    Description="Não há horário da API nem disciplinas em cache suficientes para uma vista semanal."
+                    Icon="bi-calendar-x"
+                    Tone="EmptyState.EmptyStateTone.Warning">
+            <button type="button" class="btn btn-primary" disabled="@_syncing" @onclick="OnSyncNowAsync">
+                @(_syncing ? "A sincronizar…" : "Sincronizar agora")
+            </button>
+        </EmptyState>
+    }
+    else
+    {
+        <div class="ol-schedule-week">
+            @foreach (var day in GetScheduleGroupedByDay())
+            {
+                var headingId = $"ol-schedule-day-{day.Weekday}";
+                <section class="ol-schedule-day" aria-labelledby="@headingId">
+                    <h2 id="@headingId" class="ol-schedule-day-heading">@day.Heading</h2>
+                    <div class="ol-table-wrap">
+                        <table class="ol-table">
+                            <thead>
+                                <tr>
+                                    <th>Hora</th>
+                                    <th>Disciplina</th>
+                                    <th>Docente</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var s in day.Slots)
+                                {
+                                    <tr>
+                                        <td>@FormatTimeRange(s.StartTime, s.EndTime)</td>
+                                        <td>@FormatDisciplinaPreferAbrev(s)</td>
+                                        <td>@(string.IsNullOrWhiteSpace(s.TeacherName) ? "—" : s.TeacherName)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            }
+        </div>
+    }
+}
+
+@code {
+    private bool _ready;
+    private bool _syncing;
+    private List<WeeklyScheduleSlotDto> _slots = new();
+
+    private IReadOnlyList<ScheduleDayGroup> GetScheduleGroupedByDay()
+    {
+        if (_slots.Count == 0)
+        {
+            return Array.Empty<ScheduleDayGroup>();
+        }
+
+        var byWeekday = _slots
+            .GroupBy(s => s.Weekday)
+            .ToDictionary(
+                static g => g.Key,
+                static g => (IReadOnlyList<WeeklyScheduleSlotDto>)g.OrderBy(x => x.SlotOrder).ThenBy(x => x.HorarioSlotId).ToList());
+
+        var daysWithDates = GetOrderedSchoolDaysWithCalendarDates();
+        var added = new HashSet<int>();
+        var result = new List<ScheduleDayGroup>(byWeekday.Count);
+
+        foreach (var (w, calendarDate) in daysWithDates)
+        {
+            if (!byWeekday.TryGetValue(w, out var rows))
+            {
+                continue;
+            }
+
+            added.Add(w);
+            result.Add(BuildScheduleDayGroup(w, rows, calendarDate));
+        }
+
+        foreach (var w in byWeekday.Keys.OrderBy(k => k))
+        {
+            if (added.Contains(w))
+            {
+                continue;
+            }
+
+            result.Add(BuildScheduleDayGroup(w, byWeekday[w], calendarDate: null));
+        }
+
+        return result;
+    }
+
+    private static ScheduleDayGroup BuildScheduleDayGroup(int weekday, IReadOnlyList<WeeklyScheduleSlotDto> rows, DateTime? calendarDate)
+    {
+        var name = rows.Select(static x => x.WeekdayName).FirstOrDefault(static x => !string.IsNullOrWhiteSpace(x))
+            ?? rows[0].WeekdayName;
+        var baseName = string.IsNullOrWhiteSpace(name) ? $"Dia {weekday}" : name.Trim();
+        var heading = FormatRelativeDayHeading(calendarDate, baseName);
+
+        return new ScheduleDayGroup(weekday, baseName, heading, rows);
+    }
+
+    /// <summary>Domingo: segunda aparece como «Amanhã»; segunda-feira como «Hoje».</summary>
+    private static string FormatRelativeDayHeading(DateTime? calendarDate, string weekdayName)
+    {
+        if (calendarDate is null)
+        {
+            return weekdayName;
+        }
+
+        var d = calendarDate.Value.Date;
+        var today = DateTime.Today;
+        if (d == today)
+        {
+            return $"Hoje — {weekdayName}";
+        }
+
+        if (d == today.AddDays(1))
+        {
+            return $"Amanhã — {weekdayName}";
+        }
+
+        return weekdayName;
+    }
+
+    /// <summary>Alinha cada dia lectivo (1–5) à data de calendário na sequência a partir da âncora.</summary>
+    private static IReadOnlyList<(int Weekday, DateTime CalendarDate)> GetOrderedSchoolDaysWithCalendarDates()
+    {
+        var anchor = GetFirstWeekdayOnOrAfter(DateTime.Today);
+        var nums = GetOrderedSchoolWeekdayNumbers();
+        var result = new List<(int Weekday, DateTime CalendarDate)>(5);
+        var d = anchor.Date;
+        for (var i = 0; i < 5; i++)
+        {
+            var w = nums[i];
+            while (SchoolWeekdayFromDate(d) != w)
+            {
+                d = NextCalendarSchoolDay(d);
+            }
+
+            result.Add((w, d));
+            d = NextCalendarSchoolDay(d);
+        }
+
+        return result;
+    }
+
+    private static DateTime NextCalendarSchoolDay(DateTime date)
+    {
+        var n = date.Date.AddDays(1);
+        while (n.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+        {
+            n = n.AddDays(1);
+        }
+
+        return n;
+    }
+
+    private static int SchoolWeekdayFromDate(DateTime d) => DotNetDayOfWeekToSchoolWeekday(d.DayOfWeek);
+
+    /// <summary>
+    /// 2ª–6ª começando no próximo dia útil a partir de hoje (hoje se for 2ª–6ª; sábado/domingo → segunda).
+    /// </summary>
+    private static IReadOnlyList<int> GetOrderedSchoolWeekdayNumbers()
+    {
+        var anchor = GetFirstWeekdayOnOrAfter(DateTime.Today);
+        var start = DotNetDayOfWeekToSchoolWeekday(anchor.DayOfWeek);
+        var list = new int[5];
+        for (var i = 0; i < 5; i++)
+        {
+            var w = start + i;
+            if (w > 5)
+            {
+                w -= 5;
+            }
+
+            list[i] = w;
+        }
+
+        return list;
+    }
+
+    /// <summary>Primeiro dia da semana lectiva (2ª–6ª) em <paramref name="reference"/> ou nos dias seguintes.</summary>
+    private static DateTime GetFirstWeekdayOnOrAfter(DateTime reference)
+    {
+        var d0 = reference.Date;
+        for (var i = 0; i < 7; i++)
+        {
+            var d = d0.AddDays(i);
+            if (d.DayOfWeek is >= DayOfWeek.Monday and <= DayOfWeek.Friday)
+            {
+                return d;
+            }
+        }
+
+        return d0;
+    }
+
+    private static int DotNetDayOfWeekToSchoolWeekday(DayOfWeek dow) => dow switch
+    {
+        DayOfWeek.Monday => 1,
+        DayOfWeek.Tuesday => 2,
+        DayOfWeek.Wednesday => 3,
+        DayOfWeek.Thursday => 4,
+        DayOfWeek.Friday => 5,
+        _ => 1,
+    };
+
+    /// <summary>Agrupa slots; <see cref="Heading"/> pode incluir «Hoje —» / «Amanhã —» consoante o calendário.</summary>
+    private sealed record ScheduleDayGroup(int Weekday, string WeekdayName, string Heading, IReadOnlyList<WeeklyScheduleSlotDto> Slots);
+
+    private async Task OnSyncNowAsync()
+    {
+        if (_syncing) return;
+        _syncing = true;
+        StateHasChanged();
+        try
+        {
+            await Sync.RunScheduledSyncAsync(force: true);
+            await ReloadWeeklyFromLocalAsync();
+        }
+        catch
+        {
+            // Erros de rede já chegam como notification global.
+        }
+        finally
+        {
+            _syncing = false;
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        if (!Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login", true);
+            return;
+        }
+
+        Sync.SyncFinished += OnSyncFinished;
+        await ReloadWeeklyFromLocalAsync();
+        _ready = true;
+    }
+
+    public void Dispose()
+    {
+        Sync.SyncFinished -= OnSyncFinished;
+    }
+
+    private void OnSyncFinished(GradesSyncOutcome _)
+    {
+        var __ = InvokeAsync(async () =>
+        {
+            await ReloadWeeklyFromLocalAsync();
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>SQLite (última sync) ou fallback só com notas em cache — sem HTTP.</summary>
+    private async Task ReloadWeeklyFromLocalAsync()
+    {
+        _slots = await ReadWeeklySlotsFromLocalStoreAsync();
+        if (_slots.Count > 0)
+        {
+            return;
+        }
+
+        var labels = await Overview.GetDisciplineScheduleDisplayTextsCurrentYearAsync();
+        if (labels.Count == 0)
+        {
+            labels = await Overview.GetDisciplineScheduleDisplayTextsForCourseFromSyncedGradesAsync();
+        }
+
+        var dayStartMinutes = await Overview.GetScheduleFallbackDayStartMinutesAsync();
+        var built = WeeklyScheduleFallbackBuilder.Build(labels, dayStartMinutes);
+        var teacherByDisplayKey = await LoadScheduleFallbackTeacherMapAsync();
+        ApplyTeachersToFallbackSlots(built, teacherByDisplayKey);
+        _slots = built
+            .OrderBy(x => x.Weekday)
+            .ThenBy(x => x.SlotOrder)
+            .ToList();
+    }
+
+    private async Task<List<WeeklyScheduleSlotDto>> ReadWeeklySlotsFromLocalStoreAsync()
+    {
+        try
+        {
+            await Store.EnsureReadyAsync().ConfigureAwait(false);
+            var json = await Store.GetMetaAsync(StudentPayloadCacheKeys.WeeklyScheduleJson).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new List<WeeklyScheduleSlotDto>();
+            }
+
+            var dto = JsonSerializer.Deserialize<StudentWeeklyScheduleResponseDto>(json, AppJson.Options);
+            var apiSlots = dto?.Slots;
+            if (apiSlots is not { Count: > 0 })
+            {
+                return new List<WeeklyScheduleSlotDto>();
+            }
+
+            return apiSlots
+                .OrderBy(x => x.Weekday)
+                .ThenBy(x => x.SlotOrder)
+                .ToList();
+        }
+        catch
+        {
+            return new List<WeeklyScheduleSlotDto>();
+        }
+    }
+
+    private static string FormatTimeRange(string? start, string? end)
+    {
+        if (!string.IsNullOrWhiteSpace(start) || !string.IsNullOrWhiteSpace(end))
+        {
+            return $"{start ?? "?"} - {end ?? "?"}";
+        }
+
+        return "—";
+    }
+
+    /// <summary>Mesmas chaves que o texto do horário em cache (abrev preferida, senão nome).</summary>
+    private static Dictionary<string, string?> BuildTeacherMapFromCurriculum(StudentCurriculumResponseDto? curriculum)
+    {
+        var map = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        if (curriculum?.Classes is not { Count: > 0 } classes)
+        {
+            return map;
+        }
+
+        foreach (var g in classes)
+        {
+            foreach (var d in g.Disciplinas ?? [])
+            {
+                var names = (d.TeacherNames ?? [])
+                    .Where(static x => !string.IsNullOrWhiteSpace(x))
+                    .Select(static x => x.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var joined = names.Count > 0 ? string.Join(", ", names) : null;
+                void addKey(string? key)
+                {
+                    var k = key?.Trim();
+                    if (string.IsNullOrEmpty(k) || map.ContainsKey(k))
+                    {
+                        return;
+                    }
+
+                    map[k] = joined;
+                }
+
+                addKey(d.DisciplinaAbreviatura);
+                addKey(d.DisciplinaNome);
+            }
+        }
+
+        return map;
+    }
+
+    private async Task<Dictionary<string, string?>> LoadScheduleFallbackTeacherMapAsync()
+    {
+        try
+        {
+            await Store.EnsureReadyAsync().ConfigureAwait(false);
+            var json = await Store.GetMetaAsync(StudentPayloadCacheKeys.CurriculumJson).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            var curriculum = StudentGradesApi.NormalizeCurriculumResponse(
+                JsonSerializer.Deserialize<StudentCurriculumResponseDto>(json, AppJson.Options));
+
+            return BuildTeacherMapFromCurriculum(curriculum);
+        }
+        catch
+        {
+            return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private static void ApplyTeachersToFallbackSlots(
+        List<WeeklyScheduleSlotDto> slots,
+        IReadOnlyDictionary<string, string?> teacherByDisplayKey)
+    {
+        if (slots.Count == 0 || teacherByDisplayKey.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var s in slots)
+        {
+            if (!string.IsNullOrWhiteSpace(s.TeacherName))
+            {
+                continue;
+            }
+
+            var key = s.DisciplinaName?.Trim();
+            if (string.IsNullOrEmpty(key))
+            {
+                continue;
+            }
+
+            if (teacherByDisplayKey.TryGetValue(key, out var name) && !string.IsNullOrWhiteSpace(name))
+            {
+                s.TeacherName = name;
+            }
+        }
+    }
+
+    private static string FormatDisciplinaPreferAbrev(WeeklyScheduleSlotDto s)
+    {
+        if (!string.IsNullOrWhiteSpace(s.DisciplinaAbreviatura))
+        {
+            return s.DisciplinaAbreviatura.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(s.DisciplinaName))
+        {
+            return s.DisciplinaName.Trim();
+        }
+
+        return "—";
+    }
+}

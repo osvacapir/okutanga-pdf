@@ -1,0 +1,154 @@
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# MAUI
+*.appx
+*.appxbundle
+*.appxupload
+*.msix
+*.msixbundle
+*.msixupload
+*.publish.xml
+*.publishproj
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+gen/
+out/
+.gradle/
+local.properties
+*.iml
+*.hprof
+proguard/
+*.keystore
+!debug.keystore
+
+# Assinatura Android — credenciais e base64 gerados localmente (nunca commitar)
+Keystore/**/signing.credentials.local.txt
+Keystore/**/keystore.base64.local.txt
+
+# iOS
+*.ipa
+*.dSYM.zip
+*.dSYM
+DerivedData/
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.xcuserstate
+*.xcscmblueprint
+*.hmap
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# NuGet
+*.nupkg
+*.snupkg
+*.nuspec
+packages/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Verificação local de build
+_verify_build/
+
+# Override local de config (se existir)
+appsettings.Development.json
+appsettings.*.local.json
+
+# User-specific files
+*.rsuser
+
+# Certificates and keys
+*.pfx
+*.p12
+*.key
+*.cer
+*.crt
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+*.cache
+
+# Logs
+*.log
+logs/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+
+# Coverage
+coverage/
+*.coverage
+*.coveragexml
+
+# Others
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.opendb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb

@@ -1,0 +1,233 @@
+/**
+ * Tema escuro (Olondonge). Activo via:
+ *   <html data-theme="dark">      (escolha explícita do utilizador)
+ *   prefers-color-scheme: dark    (auto, quando o utilizador NÃO escolheu)
+ *
+ * Reaproveita os tokens var(--ol-*) — só sobrepõe valores. Cuidados:
+ *  - Manter contraste AA (texto sobre superfícies escuras).
+ *  - Glass dock: borda/fundo recalculados para escuro.
+ *  - Tabelas zebradas: usar branco com baixa opacidade.
+ *  - Skeletons: gradiente escuro.
+ */
+
+html[data-theme="dark"] {
+    --ol-color-primary: #818cf8;
+    --ol-color-primary-hover: #a5b4fc;
+    --ol-color-primary-active: #c7d2fe;
+    --ol-color-primary-soft: rgba(99, 102, 241, 0.18);
+    --ol-color-primary-muted: rgba(165, 180, 252, 0.45);
+
+    --ol-color-accent: #38bdf8;
+    --ol-color-accent-soft: rgba(56, 189, 248, 0.16);
+
+    --ol-color-success: #34d399;
+    --ol-color-success-soft: rgba(16, 185, 129, 0.18);
+
+    --ol-color-danger: #f87171;
+    --ol-color-danger-soft: rgba(239, 68, 68, 0.18);
+
+    --ol-color-warning: #fbbf24;
+    --ol-color-warning-soft: rgba(245, 158, 11, 0.18);
+
+    --ol-bg-page: #0b1020;
+    --ol-bg-elevated: #131a2c;
+    --ol-bg-subtle: #1a2238;
+    --ol-border: rgba(255, 255, 255, 0.1);
+    --ol-border-strong: rgba(255, 255, 255, 0.18);
+
+    --ol-text: #e2e8f0;
+    --ol-text-secondary: #cbd5e1;
+    --ol-text-muted: #94a3b8;
+    --ol-text-on-brand: #f8fafc;
+
+    --ol-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --ol-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
+    --ol-shadow-fab: 0 8px 22px rgba(99, 102, 241, 0.45);
+
+    --ol-header-bg: linear-gradient(135deg, #1e1b4b 0%, #312e81 55%, #1e3a8a 100%);
+    --ol-header-border: rgba(255, 255, 255, 0.06);
+    --ol-header-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+
+    --ol-sidebar-bg: #0a0f1f;
+    --ol-sidebar-text: rgba(255, 255, 255, 0.85);
+    --ol-sidebar-hover: rgba(255, 255, 255, 0.07);
+
+    --ol-input-bg: #0f172a;
+    --ol-input-border: rgba(255, 255, 255, 0.18);
+    --ol-input-focus: var(--ol-color-primary);
+}
+
+/* Auto: aplica os mesmos tokens quando o sistema está em dark e o utilizador não escolheu. */
+@media (prefers-color-scheme: dark) {
+    html:not([data-theme]) {
+        --ol-color-primary: #818cf8;
+        --ol-color-primary-hover: #a5b4fc;
+        --ol-color-primary-active: #c7d2fe;
+        --ol-color-primary-soft: rgba(99, 102, 241, 0.18);
+        --ol-color-primary-muted: rgba(165, 180, 252, 0.45);
+
+        --ol-color-accent: #38bdf8;
+        --ol-color-accent-soft: rgba(56, 189, 248, 0.16);
+
+        --ol-color-success: #34d399;
+        --ol-color-success-soft: rgba(16, 185, 129, 0.18);
+
+        --ol-color-danger: #f87171;
+        --ol-color-danger-soft: rgba(239, 68, 68, 0.18);
+
+        --ol-color-warning: #fbbf24;
+        --ol-color-warning-soft: rgba(245, 158, 11, 0.18);
+
+        --ol-bg-page: #0b1020;
+        --ol-bg-elevated: #131a2c;
+        --ol-bg-subtle: #1a2238;
+        --ol-border: rgba(255, 255, 255, 0.1);
+        --ol-border-strong: rgba(255, 255, 255, 0.18);
+
+        --ol-text: #e2e8f0;
+        --ol-text-secondary: #cbd5e1;
+        --ol-text-muted: #94a3b8;
+        --ol-text-on-brand: #f8fafc;
+
+        --ol-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --ol-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
+        --ol-shadow-fab: 0 8px 22px rgba(99, 102, 241, 0.45);
+
+        --ol-header-bg: linear-gradient(135deg, #1e1b4b 0%, #312e81 55%, #1e3a8a 100%);
+        --ol-header-border: rgba(255, 255, 255, 0.06);
+        --ol-header-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+
+        --ol-sidebar-bg: #0a0f1f;
+        --ol-sidebar-text: rgba(255, 255, 255, 0.85);
+        --ol-sidebar-hover: rgba(255, 255, 255, 0.07);
+
+        --ol-input-bg: #0f172a;
+        --ol-input-border: rgba(255, 255, 255, 0.18);
+        --ol-input-focus: var(--ol-color-primary);
+    }
+}
+
+/* ======================================================================== */
+/* Ajustes pontuais (não cobertos só por tokens) — escopo: data-theme="dark" */
+/* ======================================================================== */
+
+/* Estado pages.css usa cores hardcoded. Coberto por tokens; abaixo ajustes finos. */
+
+html[data-theme="dark"] .ol-table tbody tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+html[data-theme="dark"] .ol-table tbody tr:nth-child(odd) {
+    background-color: transparent;
+}
+
+html[data-theme="dark"] .ol-skeleton {
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.04) 0%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0.04) 100%
+    );
+}
+
+html[data-theme="dark"] .ol-glass-dock-pill {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: linear-gradient(
+        165deg,
+        rgba(30, 41, 59, 0.45) 0%,
+        rgba(15, 23, 42, 0.5) 100%
+    );
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.5),
+        0 1px 0 rgba(255, 255, 255, 0.05) inset;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    html[data-theme="dark"] .ol-glass-dock-pill {
+        background: linear-gradient(
+            165deg,
+            rgba(30, 41, 59, 0.85) 0%,
+            rgba(15, 23, 42, 0.9) 100%
+        );
+    }
+}
+
+html[data-theme="dark"] .ol-glass-dock-item {
+    color: var(--ol-text-secondary);
+}
+
+html[data-theme="dark"] .ol-glass-dock-item:hover {
+    background: rgba(165, 180, 252, 0.1);
+    color: var(--ol-color-primary-hover);
+}
+
+html[data-theme="dark"] .ol-glass-dock-home {
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+html[data-theme="dark"] .ol-empty-state-icon {
+    background: rgba(99, 102, 241, 0.18);
+    color: var(--ol-color-primary-hover);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.08);
+}
+
+html[data-theme="dark"] .ol-empty-state--warn .ol-empty-state-icon {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fbbf24;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.08);
+}
+
+html[data-theme="dark"] .ol-empty-state--warn {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: linear-gradient(
+        180deg,
+        rgba(245, 158, 11, 0.12),
+        var(--ol-bg-elevated)
+    );
+}
+
+html[data-theme="dark"] .ol-fallback-banner {
+    border-color: rgba(255, 193, 7, 0.4);
+    background: linear-gradient(
+        180deg,
+        rgba(255, 193, 7, 0.1),
+        var(--ol-bg-elevated)
+    );
+    color: var(--ol-text);
+}
+
+html[data-theme="dark"] .ol-home-last-sync-dot {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .header-action {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+html[data-theme="dark"] .header-action:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+html[data-theme="dark"] .header-action--active {
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--ol-color-primary-active);
+}
+
+html[data-theme="dark"] #blazor-error-ui {
+    background: #2c1f04;
+    color: #fef3c7;
+}
+
+html[data-theme="dark"] .alert-danger {
+    background-color: var(--ol-color-danger-soft);
+    color: #fecaca;
+    border-color: rgba(248, 113, 113, 0.45);
+}
+
+/* Bootstrap utilitário comum */
+html[data-theme="dark"] .text-muted {
+    color: var(--ol-text-muted) !important;
+}

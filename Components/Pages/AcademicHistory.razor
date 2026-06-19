@@ -1,0 +1,389 @@
+@page "/historico-academico"
+@implements IDisposable
+@inject IAuthService Auth
+@inject IGradesLocalStore Store
+@inject IStudentGradesApi Api
+@inject IGradesSyncService Sync
+@inject NavigationManager Nav
+@using OlondongeApp.Components.Shared
+
+<PageTitle>Histórico académico — Olondonge</PageTitle>
+
+@if (!_ready)
+{
+    <div class="ol-history-loading" aria-live="polite" aria-busy="true">
+        <div class="ol-history-loading-head">
+            <div class="ol-skeleton ol-skeleton-title"></div>
+            <div class="ol-skeleton ol-skeleton-subtitle"></div>
+        </div>
+        @for (var i = 0; i < 3; i++)
+        {
+            <article class="ol-history-entry ol-history-entry-loading @(i == 0 ? "ol-history-entry-loading-expanded" : "ol-history-entry-loading-collapsed")">
+                <div class="ol-skeleton ol-skeleton-year"></div>
+                <div class="ol-history-card">
+                    <div class="ol-history-card-head">
+                        <div class="ol-history-loading-main">
+                            <div class="ol-skeleton ol-skeleton-line"></div>
+                            <div class="ol-skeleton ol-skeleton-line short"></div>
+                        </div>
+                        <div class="ol-skeleton ol-skeleton-toggle"></div>
+                    </div>
+                    @if (i == 0)
+                    {
+                        <div class="ol-history-details ol-history-details-loading">
+                            @for (var m = 0; m < 4; m++)
+                            {
+                                <div class="ol-history-metric">
+                                    <div class="ol-skeleton ol-skeleton-metric-label"></div>
+                                    <div class="ol-skeleton ol-skeleton-metric-value"></div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+}
+else if (!Auth.IsAuthenticated)
+{
+    <p>A redirecionar…</p>
+}
+else
+{
+    <div class="ol-grades-header-card">
+        <PageHeader Title="Histórico académico"
+                    Subtitle="Linha do tempo do percurso escolar"
+                    ShowBack="true"
+                    BackHref="/grades"
+                    FallbackBackHref="/grades" />
+    </div>
+
+    @if (_items.Count == 0)
+    {
+        <p class="ol-muted">Sem matrículas em cache. Abra <a href="/grades">Notas</a> ou toque no botão <strong>⟳</strong> (canto inferior direito) com ligação à Internet.</p>
+    }
+    else
+    {
+        <div class="ol-history-timeline">
+            @foreach (var item in _items)
+            {
+                <article class="ol-history-entry">
+                    <div class="ol-history-year-marker">@item.YearLabel</div>
+                    <div class="ol-history-card">
+                        <div class="ol-history-card-head">
+                            <div>
+                                <h3 class="ol-history-title">@FormatCourseClass(item.Enrolment)</h3>
+                                @if (item.Enrolment.IsCurrentAnoLectivo)
+                                {
+                                    <span class="badge bg-success">Ano actual</span>
+                                }
+                            </div>
+                            <div class="ol-history-actions">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary ol-history-toggle-btn"
+                                        @onclick="() => ToggleDetailsAsync(item.Enrolment.MatriculaId)">
+                                    <span aria-hidden="true">@(item.IsExpanded ? "▴" : "▾")</span>
+                                    <span class="visually-hidden">@(item.IsExpanded ? "Ocultar detalhes" : "Ver detalhes")</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (item.IsExpanded)
+                        {
+                            <div class="ol-history-details">
+                                <div class="ol-history-metric">
+                                    <span class="ol-grade-label">Resultado final</span>
+                                    <strong class="@ResultCss(item.ResultadoFinal)">@item.ResultadoFinal</strong>
+                                </div>
+                                @if (item.NegativasFinais > 0)
+                                {
+                                    <div class="ol-history-metric">
+                                        <span class="ol-grade-label">Negativas finais</span>
+                                        <strong>@item.NegativasFinais</strong>
+                                    </div>
+                                }
+                                <div class="ol-history-metric">
+                                    <span class="ol-grade-label">Média final</span>
+                                    <strong>@FormatAverage(item.MediaFinal)</strong>
+                                </div>
+                                <div class="ol-history-metric">
+                                    <span class="ol-grade-label">Ranking da turma</span>
+                                    <strong>@item.RankingTurma</strong>
+                                </div>
+                                   <a class="btn btn-sm btn-outline-primary" href="@($"/historico-academico/notas/{item.Enrolment.MatriculaId}")">Ver notas</a>
+                        
+                            </div>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+}
+
+@code {
+    private const decimal PassThreshold = 10m;
+
+    private bool _ready;
+    private List<HistoryTimelineItem> _items = new();
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        if (!Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login", true);
+            return;
+        }
+
+        await LoadAsync();
+        _ready = true;
+        Auth.AuthenticationStateChanged += OnAuthChanged;
+        Sync.SyncFinished += OnSyncFinished;
+    }
+
+    private void OnAuthChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await Auth.InitializeAsync();
+            if (!Auth.IsAuthenticated)
+            {
+                Nav.NavigateTo("/login", true);
+            }
+        });
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthenticationStateChanged -= OnAuthChanged;
+        Sync.SyncFinished -= OnSyncFinished;
+    }
+
+    private void OnSyncFinished(GradesSyncOutcome _)
+    {
+        var __ = InvokeAsync(ReloadTimelineAfterSyncAsync);
+    }
+
+    private async Task ReloadTimelineAfterSyncAsync()
+    {
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        var enrolments = (await Store.GetEnrolmentsAsync()).ToList();
+        var ordered = enrolments
+            .OrderByDescending(x => x.AnoLectivoId)
+            .ThenByDescending(x => x.MatriculaId)
+            .ToList();
+
+        var list = new List<HistoryTimelineItem>();
+        foreach (var enrolment in ordered)
+        {
+            var summary = await BuildSummaryAsync(enrolment.MatriculaId);
+            var cached = await Store.GetHistorySummaryAsync(enrolment.MatriculaId);
+            list.Add(new HistoryTimelineItem
+            {
+                Enrolment = enrolment,
+                YearLabel = YearLabel(enrolment),
+                ResultadoFinal = cached?.ResultadoFinal ?? summary.ResultadoFinal,
+                NegativasFinais = cached?.NegativasFinais ?? summary.NegativasFinais,
+                MediaFinal = cached?.MediaFinal ?? summary.MediaFinal,
+                RankingTurma = FormatRanking(cached?.RankingPosicao, cached?.RankingTotal),
+                RemoteSummaryLoaded = cached != null,
+            });
+        }
+
+        if (list.Count > 0)
+        {
+            list[0].IsExpanded = true;
+        }
+
+        _items = list;
+    }
+
+    private async Task<HistorySummary> BuildSummaryAsync(int matriculaId)
+    {
+        var periods = (await Store.GetPeriodsAsync(matriculaId))
+            .OrderByDescending(x => x.PeriodoId)
+            .ToList();
+        if (periods.Count == 0)
+        {
+            return new HistorySummary
+            {
+                ResultadoFinal = "Sem dados",
+                NegativasFinais = 0,
+                MediaFinal = null,
+            };
+        }
+
+        var latestPerDiscipline = new Dictionary<string, (int PeriodId, decimal? Value)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var period in periods)
+        {
+            var grades = await Store.GetGradesAsync(matriculaId, period.PeriodoId);
+            foreach (var grade in grades)
+            {
+                var key = DisciplineKey(grade);
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    continue;
+                }
+
+                var value = BestValue(grade);
+                if (!value.HasValue)
+                {
+                    continue;
+                }
+
+                if (!latestPerDiscipline.TryGetValue(key, out var current) || period.PeriodoId > current.PeriodId)
+                {
+                    latestPerDiscipline[key] = (period.PeriodoId, value);
+                }
+            }
+        }
+
+        if (latestPerDiscipline.Count == 0)
+        {
+            return new HistorySummary
+            {
+                ResultadoFinal = "Sem dados",
+                NegativasFinais = 0,
+                MediaFinal = null,
+            };
+        }
+
+        var finalValues = latestPerDiscipline.Values
+            .Select(v => v.Value)
+            .Where(v => v.HasValue)
+            .Select(v => v!.Value)
+            .ToList();
+        var negativas = finalValues.Count(v => v < PassThreshold);
+        var media = finalValues.Average();
+
+        return new HistorySummary
+        {
+            ResultadoFinal = negativas == 0 && media >= PassThreshold ? "Aprovado" : "Reprovado",
+            NegativasFinais = negativas,
+            MediaFinal = media,
+        };
+    }
+
+    private async Task ToggleDetailsAsync(int matriculaId)
+    {
+        var item = _items.FirstOrDefault(x => x.Enrolment.MatriculaId == matriculaId);
+        if (item is null)
+        {
+            return;
+        }
+
+        item.IsExpanded = !item.IsExpanded;
+        if (!item.IsExpanded || item.RemoteSummaryLoaded)
+        {
+            return;
+        }
+
+        try
+        {
+            var remote = await Api.GetHistorySummaryAsync(matriculaId);
+            if (remote is null)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(remote.ResultadoFinal))
+            {
+                item.ResultadoFinal = remote.ResultadoFinal!;
+            }
+
+            item.NegativasFinais = remote.NegativasFinais;
+            item.MediaFinal = remote.MediaFinal;
+            item.RankingTurma = FormatRanking(remote.RankingPosicao, remote.RankingTotal);
+            item.RemoteSummaryLoaded = true;
+            await Store.UpsertHistorySummaryAsync(remote);
+        }
+        catch
+        {
+            // mantém fallback local
+        }
+    }
+
+    private static string FormatCourseClass(EnrolmentDto e)
+    {
+        var parts = new[] { e.CursoName, e.ClasseName }.Where(x => !string.IsNullOrWhiteSpace(x));
+        var label = string.Join(" · ", parts);
+        return string.IsNullOrEmpty(label) ? $"Matrícula {e.MatriculaId}" : label;
+    }
+
+    private static string YearLabel(EnrolmentDto e)
+    {
+        if (!string.IsNullOrWhiteSpace(e.AnoLectivoName))
+        {
+            return e.AnoLectivoName!;
+        }
+
+        return e.AnoLectivoId > 0 ? $"Ano {e.AnoLectivoId}" : "Ano ?";
+    }
+
+    private static string ResultCss(string result) => result.Equals("Aprovado", StringComparison.OrdinalIgnoreCase)
+        ? "text-success"
+        : result.Equals("Reprovado", StringComparison.OrdinalIgnoreCase)
+            ? "text-danger"
+            : "text-muted";
+
+    private static decimal? BestValue(GradeLineDto g)
+    {
+        if (g.Mt.HasValue) return g.Mt;
+        if (g.Cpt.HasValue) return g.Cpt;
+        if (g.CppEnabled && g.Cpp.HasValue) return g.Cpp;
+        if (g.Mac.HasValue) return g.Mac;
+        return null;
+    }
+
+    private static string? DisciplineKey(GradeLineDto g)
+    {
+        if (!string.IsNullOrWhiteSpace(g.DisciplinaName))
+        {
+            return g.DisciplinaName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(g.DisciplinaAbreviatura))
+        {
+            return g.DisciplinaAbreviatura.Trim();
+        }
+
+        return null;
+    }
+
+    private static string FormatAverage(decimal? average) => average.HasValue ? average.Value.ToString("0.00") : "—";
+
+    private static string FormatRanking(int? posicao, int? total)
+    {
+        if (posicao.HasValue && total.HasValue && total.Value > 0)
+        {
+            return $"{posicao.Value}º de {total.Value}";
+        }
+
+        return "N/D";
+    }
+
+    private sealed class HistoryTimelineItem
+    {
+        public required EnrolmentDto Enrolment { get; init; }
+        public required string YearLabel { get; init; }
+        public string ResultadoFinal { get; set; } = "Sem dados";
+        public int NegativasFinais { get; set; }
+        public decimal? MediaFinal { get; set; }
+        public string RankingTurma { get; set; } = "N/D";
+        public bool IsExpanded { get; set; }
+        public bool RemoteSummaryLoaded { get; set; }
+    }
+
+    private sealed class HistorySummary
+    {
+        public string ResultadoFinal { get; init; } = "Sem dados";
+        public int NegativasFinais { get; init; }
+        public decimal? MediaFinal { get; init; }
+    }
+}

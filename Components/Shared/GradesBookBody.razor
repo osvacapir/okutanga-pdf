@@ -1,0 +1,102 @@
+@using OlondongeApp.Models
+@using OlondongeApp.Models.Dtos
+
+@if (Grades.Count == 0)
+{
+    <p class="ol-muted">Sem notas para esta seleção (offline ou ainda não publicadas).</p>
+}
+else
+{
+    <div class="ol-grades-book">
+    <div class="ol-table-wrap">
+        <table class="ol-table">
+            <thead>
+                <tr>
+                    <th>Disciplina</th>
+                    <th>MAC</th>
+                    <th>CPP</th>
+                    <th>CPT</th>
+                    <th>MT</th>
+                    <th>Exames</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var g in Grades)
+                {
+                    <tr>
+                        <td>
+                            <strong>@(g.DisciplinaName ?? g.DisciplinaAbreviatura)</strong>
+                            @if (!string.IsNullOrEmpty(g.DisciplinaAbreviatura) && g.DisciplinaName != g.DisciplinaAbreviatura)
+                            {
+                                <span class="ol-muted"> (@g.DisciplinaAbreviatura)</span>
+                            }
+                        </td>
+                        <td><span class="@GradeValueDisplay.CssClassFor(g.Mac)">@FormatNum(g.Mac)</span></td>
+                        <td><span class="@GradeValueDisplay.CssClassFor(g.Cpp)">@FormatNum(g.Cpp)</span></td>
+                        <td><span class="@GradeValueDisplay.CssClassFor(g.Cpt)">@FormatNum(g.Cpt)</span></td>
+                        <td><span class="@GradeValueDisplay.CssClassFor(g.Mt)">@FormatNum(g.Mt)</span></td>
+                        <td>
+                            @if (g.Exames is { Count: > 0 })
+                            {
+                                <ul class="ol-exames">
+                                    @foreach (var ex in g.Exames)
+                                    {
+                                        <li>@ex.TipoAvaliacaoName: <span class="@GradeValueDisplay.CssClassFor(ex.Valor)">@FormatNum(ex.Valor)</span></li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <span class="ol-muted">—</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="ol-grades-cards">
+        @foreach (var g in Grades)
+        {
+            <article class="ol-grade-card">
+                <div class="ol-grade-card-title">
+                    @* Mobile (cartões): só abreviatura; fallback para o nome se a API não enviar abreviatura. *@
+                    <strong>@(g.DisciplinaAbreviatura ?? g.DisciplinaName ?? "—")</strong>
+                </div>
+
+                <div class="ol-grade-grid">
+                    <div><span class="ol-grade-label">MAC</span><span class="@GradeValueDisplay.CssClassFor(g.Mac)">@FormatNum(g.Mac)</span></div>
+                    <div><span class="ol-grade-label">CPP</span><span class="@GradeValueDisplay.CssClassFor(g.Cpp)">@FormatNum(g.Cpp)</span></div>
+                    <div><span class="ol-grade-label">CPT</span><span class="@GradeValueDisplay.CssClassFor(g.Cpt)">@FormatNum(g.Cpt)</span></div>
+                    <div><span class="ol-grade-label">MT</span><span class="@GradeValueDisplay.CssClassFor(g.Mt)">@FormatNum(g.Mt)</span></div>
+                </div>
+
+                <div class="ol-grade-exams">
+                    <span class="ol-grade-label">Exames</span>
+                    @if (g.Exames is { Count: > 0 })
+                    {
+                        <ul class="ol-exames">
+                            @foreach (var ex in g.Exames)
+                            {
+                                <li>@ex.TipoAvaliacaoName: <span class="@GradeValueDisplay.CssClassFor(ex.Valor)">@FormatNum(ex.Valor)</span></li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <span class="ol-muted">—</span>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<GradeLineDto> Grades { get; set; } = Array.Empty<GradeLineDto>();
+
+    private static string FormatNum(decimal? v) => v.HasValue ? v.Value.ToString("0.##") : "—";
+}

@@ -1,0 +1,129 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@using OlondongeApp.Components.Shared
+@inject IJSRuntime JSRuntime
+@inject OlondongeApp.Services.IDeviceInfoService DeviceInfoService
+@inject IAuthService Auth
+
+<div class="layout-shell">
+    <ConnectionBanner />
+
+    <div class="page @(isTablet ? "layout-tablet" : "layout-phone") @(orientationClass) @(showPhoneDock ? "layout-phone-dock" : "")" id="page-root">
+        <div class="sidebar" id="sidebar">
+            <NavMenu />
+        </div>
+
+        <div class="sidebar-overlay layout-phone-only" id="sidebar-overlay"></div>
+
+        <main>
+            <Header OnMenuToggle="ToggleSidebar" />
+
+            <article class="content">
+                <div class="content-wrapper">
+                    @Body
+                </div>
+            </article>
+        </main>
+
+        <Toaster />
+        <FloatingGlassDock />
+        <GlobalSyncFab />
+    </div>
+</div>
+
+@code {
+    private bool isTablet;
+    private string orientationClass = "orientation-portrait";
+    private bool showPhoneDock;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isTablet = DeviceInfoService.IsTablet;
+        await Auth.InitializeAsync();
+        Auth.AuthenticationStateChanged += OnAuthStateChanged;
+        UpdatePhoneDockClass();
+
+        UpdateOrientationClass(DeviceDisplay.Current.MainDisplayInfo.Orientation);
+        DeviceDisplay.Current.MainDisplayInfoChanged += OnDisplayInfoChanged;
+    }
+
+    private void OnAuthStateChanged()
+    {
+        UpdatePhoneDockClass();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdatePhoneDockClass()
+    {
+        showPhoneDock = !isTablet && Auth.IsReady && Auth.IsAuthenticated;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("initSidebarOverlay");
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+    }
+
+    private void OnDisplayInfoChanged(object? sender, DisplayInfoChangedEventArgs e)
+    {
+        UpdateOrientationClass(e.DisplayInfo.Orientation);
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateOrientationClass(DisplayOrientation orientation)
+    {
+        orientationClass = orientation == DisplayOrientation.Landscape
+            ? "orientation-landscape"
+            : "orientation-portrait";
+    }
+
+    private async Task ToggleSidebar()
+    {
+        const string jsCode = @"
+            const checkbox = document.querySelector('.navbar-toggler');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if (checkbox) {
+                const isChecked = !checkbox.checked;
+                checkbox.checked = isChecked;
+                checkbox.dispatchEvent(new Event('change'));
+                if (isChecked) {
+                    if (sidebar) sidebar.classList.add('open');
+                    if (overlay) {
+                        overlay.style.display = 'block';
+                        requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+                    }
+                } else {
+                    if (sidebar) sidebar.classList.remove('open');
+                    if (overlay) {
+                        overlay.style.opacity = '0';
+                        setTimeout(() => { overlay.style.display = 'none'; }, 250);
+                    }
+                }
+            }
+        ";
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("eval", jsCode);
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthenticationStateChanged -= OnAuthStateChanged;
+        DeviceDisplay.Current.MainDisplayInfoChanged -= OnDisplayInfoChanged;
+    }
+}

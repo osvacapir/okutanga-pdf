@@ -1,0 +1,49 @@
+name: "MAUI CI Setup"
+description: "Setup comum (Java opcional, .NET com cache e instalação de workload MAUI)."
+
+inputs:
+  dotnet-version:
+    description: ".NET SDK version (ex: 10.0.x)"
+    required: false
+    default: "10.0.x"
+  workload:
+    description: "Workload MAUI (ex: maui-android, maui-windows)"
+    required: true
+  java-version:
+    description: "Java version (se vazio, não instala). Ex: 17"
+    required: false
+    default: ""
+  cache-dependency-path:
+    description: "Paths para cache do NuGet"
+    required: false
+    default: |
+      **/*.csproj
+      **/packages.lock.json
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Java (optional)
+      if: ${{ inputs.java-version != '' }}
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: ${{ inputs.java-version }}
+
+    - name: Setup .NET SDK (with cache)
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+        cache: true
+        cache-dependency-path: ${{ inputs.cache-dependency-path }}
+
+    - name: Install MAUI workload (Linux)
+      if: ${{ runner.os == 'Linux' }}
+      run: dotnet workload install ${{ inputs.workload }} --skip-manifest-update
+      shell: bash
+
+    - name: Install MAUI workload (Windows)
+      if: ${{ runner.os == 'Windows' }}
+      run: dotnet workload install ${{ inputs.workload }} --skip-manifest-update
+      shell: pwsh
+

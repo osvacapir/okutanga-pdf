@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <!-- Desenvolvimento: API local em HTTP (Docker / Traefik / emulador). Produção deve usar HTTPS. -->
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="true">localhost</domain>
+    <domain includeSubdomains="true">127.0.0.1</domain>
+    <domain includeSubdomains="true">10.0.2.2</domain>
+    <domain includeSubdomains="true">med-api.localhost</domain>
+  </domain-config>
+</network-security-config>

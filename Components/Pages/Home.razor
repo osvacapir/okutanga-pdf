@@ -1,0 +1,341 @@
+@page "/home"
+@implements IDisposable
+@inject IAuthService Auth
+@inject IStudentAcademicOverviewService Overview
+@inject IGradesSyncService Sync
+@inject NavigationManager Nav
+@using System.Globalization
+@using OlondongeApp.Services
+
+<PageTitle>Olondonge</PageTitle>
+
+@if (!_ready)
+{
+    <LoadingSkeleton Variant="LoadingSkeleton.LoadingSkeletonVariant.Page" Lines="2" ShowBlock="true" />
+}
+else if (!Auth.IsAuthenticated)
+{
+    <p>A redirecionar…</p>
+}
+else
+{
+    <h2 class="h6 text-uppercase text-muted mb-2">Indicadores</h2>
+    <div class="ol-home-kpi-grid" aria-label="Indicadores académicos">
+        <article class="ol-home-kpi @KpiToneClass(_insights.NegativasDisciplinasCount > 0)">
+            <p class="ol-home-kpi-label">Negativas</p>
+            <p class="ol-home-kpi-value" aria-live="polite">@FormatNegativasKpi()</p>
+            <p class="ol-home-kpi-hint">vs mín. 10</p>
+        </article>
+        <article class="ol-home-kpi @RankingKpiArticleClass()" aria-labelledby="ol-kpi-ranking-label">
+            <p class="ol-home-kpi-label" id="ol-kpi-ranking-label">Ranking na turma</p>
+            @if (_insights.HasRankingData)
+            {
+                <div class="ol-ranking-visual"
+                     role="img"
+                     aria-label="@RankingAriaLabel()">
+                    <div class="ol-ranking-bar-track">
+                        <div class="ol-ranking-segments" aria-hidden="true">
+                            <span class="ol-ranking-seg ol-ranking-seg-q0"></span>
+                            <span class="ol-ranking-seg ol-ranking-seg-q1"></span>
+                            <span class="ol-ranking-seg ol-ranking-seg-q2"></span>
+                            <span class="ol-ranking-seg ol-ranking-seg-q3"></span>
+                        </div>
+                        <span class="ol-ranking-marker ol-ranking-marker-q@(RankingQuartileFromInsights())"
+                              style="@RankingMarkerStyle()"
+                              aria-hidden="true"></span>
+                    </div>
+                    <div class="ol-ranking-legend" aria-hidden="true">
+                        <span>1º</span>
+                        <span class="ol-ranking-legend-mid">@($"{_insights.RankingTurmaTotal!.Value}º")</span>
+                    </div>
+                </div>
+                <p class="ol-home-kpi-value ol-ranking-kpi-numbers" aria-live="polite">@($"{_insights.RankingTurmaPosicao!.Value}º / {_insights.RankingTurmaTotal!.Value}")</p>
+                <p class="ol-home-kpi-hint ol-ranking-quartile-hint">@GetRankingQuartileHintShort(RankingQuartileFromInsights())</p>
+            }
+            else
+            {
+                <p class="ol-home-kpi-value" aria-live="polite">N/D</p>
+                <p class="ol-home-kpi-hint">sem dados em cache</p>
+            }
+        </article>
+        <article class="ol-home-kpi @(_insights.HasMatriculaAnoActual ? "ol-home-kpi-ok" : "ol-home-kpi-warn")">
+            <p class="ol-home-kpi-label">Matrícula do ano actual</p>
+            @if (_insights.HasMatriculaAnoActual)
+            {
+                <p class="ol-home-kpi-value ol-home-kpi-matricula-classe" aria-live="polite">@FormatMatriculaClasse()</p>
+                <p class="ol-home-kpi-matricula-ano" aria-live="polite">@FormatMatriculaAno()</p>
+            }
+            else
+            {
+                <p class="ol-home-kpi-value">—</p>
+            }
+        </article>
+    </div>
+
+    <h2 class="h6 text-uppercase text-muted mb-2">Acesso rápido</h2>
+    <div class="ol-home-grid">
+        <a class="ol-home-tile" href="/grades">
+            <span class="ol-home-tile-icon" aria-hidden="true">📊</span>
+            <span class="ol-home-tile-title">Notas</span>
+            <span class="ol-home-tile-desc">Ano lectivo actual</span>
+        </a>
+        <a class="ol-home-tile" href="/historico-academico">
+            <span class="ol-home-tile-icon" aria-hidden="true">📚</span>
+            <span class="ol-home-tile-title">Histórico</span>
+            <span class="ol-home-tile-desc">Matrículas anteriores</span>
+        </a>
+        <a class="ol-home-tile" href="/curriculo">
+            <span class="ol-home-tile-icon" aria-hidden="true">📋</span>
+            <span class="ol-home-tile-title">Grelha curricular</span>
+            <span class="ol-home-tile-desc">Disciplinas do curso</span>
+        </a>
+        <a class="ol-home-tile" href="/horario">
+            <span class="ol-home-tile-icon" aria-hidden="true">🗓️</span>
+            <span class="ol-home-tile-title">Horário</span>
+            <span class="ol-home-tile-desc">Semanal</span>
+        </a>
+        <a class="ol-home-tile" href="/propinas">
+            <span class="ol-home-tile-icon" aria-hidden="true">💳</span>
+            <span class="ol-home-tile-title">Propinas</span>
+            <span class="ol-home-tile-desc">Pagamentos</span>
+        </a>
+    </div>
+
+    <p class="ol-home-last-sync" aria-live="polite">
+        <span class="ol-home-last-sync-dot @LastSyncDotClass()" aria-hidden="true"></span>
+        @LastSyncLabel()
+    </p>
+}
+
+@code {
+    private bool _ready;
+    private StudentDashboardInsights _insights = new();
+    private DateTime? _lastSyncUtc;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        if (!Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login", true);
+            return;
+        }
+
+        _insights = await SafeGetDashboardInsightsAsync();
+        _lastSyncUtc = Sync.GetLastSyncUtc();
+        _ready = true;
+        Auth.AuthenticationStateChanged += OnAuthChanged;
+        Sync.SyncFinished += OnSyncFinished;
+    }
+
+    private void OnAuthChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await Auth.InitializeAsync();
+            if (!Auth.IsAuthenticated)
+            {
+                Nav.NavigateTo("/login", true);
+                return;
+            }
+
+            _insights = await SafeGetDashboardInsightsAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthenticationStateChanged -= OnAuthChanged;
+        Sync.SyncFinished -= OnSyncFinished;
+    }
+
+    private void OnSyncFinished(GradesSyncOutcome outcome)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            _insights = await SafeGetDashboardInsightsAsync();
+            _lastSyncUtc = Sync.GetLastSyncUtc();
+            StateHasChanged();
+        });
+    }
+
+    private async Task<StudentDashboardInsights> SafeGetDashboardInsightsAsync()
+    {
+        try
+        {
+            return await Overview.GetDashboardInsightsAsync();
+        }
+        catch
+        {
+            return new StudentDashboardInsights();
+        }
+    }
+
+    private string LastSyncLabel()
+    {
+        if (_lastSyncUtc is null)
+        {
+            return "Sem sincronização registada.";
+        }
+
+        var local = _lastSyncUtc.Value.ToLocalTime();
+        var delta = DateTime.UtcNow - _lastSyncUtc.Value;
+
+        string relative;
+        if (delta < TimeSpan.FromMinutes(1))
+        {
+            relative = "agora mesmo";
+        }
+        else if (delta < TimeSpan.FromHours(1))
+        {
+            var m = (int)Math.Round(delta.TotalMinutes);
+            relative = m <= 1 ? "há 1 minuto" : $"há {m} minutos";
+        }
+        else if (delta < TimeSpan.FromDays(1))
+        {
+            var h = (int)Math.Floor(delta.TotalHours);
+            relative = h <= 1 ? "há 1 hora" : $"há {h} horas";
+        }
+        else
+        {
+            var d = (int)Math.Floor(delta.TotalDays);
+            relative = d <= 1 ? "ontem" : $"há {d} dias";
+        }
+
+        var stamp = local.ToString("dd/MM HH:mm", CultureInfo.InvariantCulture);
+        return $"Última sincronização: {relative} · {stamp}";
+    }
+
+    private string LastSyncDotClass()
+    {
+        if (_lastSyncUtc is null)
+        {
+            return "ol-home-last-sync-dot-muted";
+        }
+
+        var delta = DateTime.UtcNow - _lastSyncUtc.Value;
+        if (delta <= TimeSpan.FromHours(24))
+        {
+            return "ol-home-last-sync-dot-ok";
+        }
+
+        if (delta <= TimeSpan.FromDays(3))
+        {
+            return "ol-home-last-sync-dot-warn";
+        }
+
+        return "ol-home-last-sync-dot-stale";
+    }
+
+    private string FormatNegativasKpi()
+    {
+        if (!_insights.HasMatriculaAnoActual)
+        {
+            return "—";
+        }
+
+        return _insights.NegativasDisciplinasCount.ToString();
+    }
+
+    private string RankingKpiArticleClass() =>
+        _insights.HasRankingData
+            ? $"ol-home-kpi-ranking ol-home-kpi-ranking-q{RankingQuartileFromInsights()}"
+            : "ol-home-kpi-muted";
+
+    private int RankingQuartileFromInsights() =>
+        GetRankingQuartile(_insights.RankingTurmaPosicao!.Value, _insights.RankingTurmaTotal!.Value);
+
+    private string RankingAriaLabel()
+    {
+        var pos = _insights.RankingTurmaPosicao!.Value;
+        var total = _insights.RankingTurmaTotal!.Value;
+        var q = GetRankingQuartile(pos, total);
+        return $"Posição {pos} de {total} na turma. {GetRankingQuartileHintLong(q)}.";
+    }
+
+    private string RankingMarkerStyle()
+    {
+        var leftPct = GetRankingMarkerLeftPercent(
+            _insights.RankingTurmaPosicao!.Value,
+            _insights.RankingTurmaTotal!.Value);
+        return $"left: {leftPct.ToString("0.##", CultureInfo.InvariantCulture)}%;";
+    }
+
+    /// <summary>1º = melhor. Marcador: 0% no 1º, 100% no último.</summary>
+    private static double GetRankingMarkerLeftPercent(int pos, int total)
+    {
+        if (total <= 1 || pos < 1)
+        {
+            return 0;
+        }
+
+        pos = Math.Min(pos, total);
+        return (double)(pos - 1) / (total - 1) * 100.0;
+    }
+
+    /// <summary>0 = melhor quartil (melhores 25%), 3 = pior quartil.</summary>
+    private static int GetRankingQuartile(int pos, int total)
+    {
+        if (total <= 0)
+        {
+            return 3;
+        }
+
+        if (total == 1)
+        {
+            return 0;
+        }
+
+        pos = Math.Clamp(pos, 1, total);
+        var t1 = (int)Math.Ceiling(total * 0.25);
+        var t2 = (int)Math.Ceiling(total * 0.50);
+        var t3 = (int)Math.Ceiling(total * 0.75);
+        if (pos <= t1)
+        {
+            return 0;
+        }
+
+        if (pos <= t2)
+        {
+            return 1;
+        }
+
+        if (pos <= t3)
+        {
+            return 2;
+        }
+
+        return 3;
+    }
+
+    private static string GetRankingQuartileHintShort(int q) => q switch
+    {
+        0 => "Entre os melhores 25%",
+        1 => "2.º quartil da turma",
+        2 => "3.º quartil da turma",
+        _ => "Entre os últimos 25%",
+    };
+
+    private static string GetRankingQuartileHintLong(int q) => q switch
+    {
+        0 => "Primeiro quartil, entre os melhores 25 por cento",
+        1 => "Segundo quartil",
+        2 => "Terceiro quartil",
+        _ => "Quarto quartil, entre os últimos 25 por cento",
+    };
+
+    private string FormatMatriculaClasse()
+    {
+        var s = _insights.MatriculaAnoActualClasseName;
+        return string.IsNullOrWhiteSpace(s) ? "—" : s.Trim();
+    }
+
+    private string FormatMatriculaAno()
+    {
+        var s = _insights.MatriculaAnoActualAnoLectivoName;
+        return string.IsNullOrWhiteSpace(s) ? "—" : s.Trim();
+    }
+
+    private static string KpiToneClass(bool stressed) => stressed ? "ol-home-kpi-alert" : "ol-home-kpi-ok";
+}

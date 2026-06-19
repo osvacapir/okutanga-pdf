@@ -1,0 +1,42 @@
+@using Microsoft.AspNetCore.Components.Web
+
+<Router AppAssembly="@typeof(MauiProgram).Assembly">
+    <Found Context="routeData">
+        @* MAUI Blazor WebView: ErrorBoundary não expõe o parâmetro OnError (diferente do Blazor Server/WASM). *@
+        <ErrorBoundary @ref="_errorBoundary">
+            <ChildContent>
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            </ChildContent>
+            <ErrorContent>
+                <PageTitle>Erro</PageTitle>
+                <LayoutView Layout="@typeof(Layout.MainLayout)">
+                    <div class="container mt-4">
+                        <h1>Ocorreu um erro</h1>
+                        <p>Toque em “Recarregar” para continuar.</p>
+                        <button class="btn btn-primary" @onclick="Recover">Recarregar</button>
+                    </div>
+                </LayoutView>
+            </ErrorContent>
+        </ErrorBoundary>
+    </Found>
+    <NotFound>
+        <PageTitle>Página não encontrada</PageTitle>
+        <LayoutView Layout="@typeof(Layout.MainLayout)">
+            <div class="container mt-5">
+                <h1>404 - Página não encontrada</h1>
+                <p>A página que procura não existe.</p>
+                <a href="/" class="btn btn-primary">Voltar ao início</a>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    private ErrorBoundary? _errorBoundary;
+
+    private void Recover()
+    {
+        _errorBoundary?.Recover();
+    }
+}

@@ -1,0 +1,276 @@
+@page "/historico-academico/notas/{MatriculaId:int}"
+@implements IDisposable
+@inject IAuthService Auth
+@inject IGradesLocalStore Store
+@inject IGradesSyncService Sync
+@inject IStudentGradesApi Api
+@inject NavigationManager Nav
+@using OlondongeApp.Components.Shared
+@using OlondongeApp.Models
+@using OlondongeApp.Models.Dtos
+
+<PageTitle>Notas (histórico) — Olondonge</PageTitle>
+
+@if (!_ready)
+{
+    <LoadingSkeleton Variant="LoadingSkeleton.LoadingSkeletonVariant.Cards" Items="4" />
+}
+else if (!Auth.IsAuthenticated)
+{
+    <p>A redirecionar…</p>
+}
+else if (_enrolment == null)
+{
+    <p class="ol-muted">Matrícula não encontrada.</p>
+    <p><a href="/historico-academico">Voltar ao histórico</a></p>
+}
+else
+{
+    <div class="ol-grades-header-card">
+        <PageHeader Title="Notas"
+                    TitleAside="@_enrolment?.AnoLectivoName"
+                    Subtitle="@($"{_syncHint} · {EnrolmentDisplayFormatter.FormatMatriculaSelectLabel(_enrolment!)}")"
+                    ShowBack="true"
+                    BackHref="/historico-academico"
+                    FallbackBackHref="/historico-academico">
+            <Actions>
+                <button type="button" class="btn btn-outline-secondary btn-sm" disabled="@_downloadBusy" @onclick="DownloadFichaAcademicaAsync">
+                    @(_downloadBusy ? "A gerar…" : "Ficha académica")
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" disabled="@_downloadBusy || _selectedPeriodoId == 0" @onclick="DownloadBoletimAsync">
+                    @(_downloadBusy ? "A gerar…" : "Boletim (PDF)")
+                </button>
+            </Actions>
+        </PageHeader>
+    </div>
+
+    <div class="ol-filter-card">
+        <div class="ol-filter-header">
+            <strong>Filtros</strong>
+            <span class="ol-muted">Trimestre</span>
+        </div>
+        <div class="ol-filter-grid">
+            <div class="ol-filter-item">
+                <label>Trimestre</label>
+                <select class="ol-input" value="@_selectedPeriodoId" @onchange="OnPeriodSelectChange">
+                    @foreach (var p in _periods)
+                    {
+                        <option value="@p.PeriodoId">@(p.PeriodoName ?? ("Período " + p.PeriodoId))</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <GradesBookBody Grades="_grades" />
+}
+
+@code {
+    [Parameter]
+    public int MatriculaId { get; set; }
+
+    private bool _ready;
+    private bool _downloadBusy;
+    private string _syncHint = string.Empty;
+    private EnrolmentDto? _enrolment;
+    private List<(int PeriodoId, string? PeriodoName)> _periods = new();
+    private List<GradeLineDto> _grades = new();
+    private int _selectedPeriodoId;
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        if (!Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login", true);
+            return;
+        }
+
+        Auth.AuthenticationStateChanged += OnAuthChanged;
+        Sync.SyncFinished += OnSyncFinished;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Auth.IsAuthenticated)
+        {
+            return;
+        }
+
+        await LoadLocalAsync();
+        await UpdateSyncHintAsync();
+        _ready = true;
+    }
+
+    private void OnAuthChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await Auth.InitializeAsync();
+            if (!Auth.IsAuthenticated)
+            {
+                Nav.NavigateTo("/login", true);
+            }
+        });
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthenticationStateChanged -= OnAuthChanged;
+        Sync.SyncFinished -= OnSyncFinished;
+    }
+
+    private void OnSyncFinished(GradesSyncOutcome outcome)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadLocalAsync();
+            await UpdateSyncHintAsync();
+            if (outcome.Status == GradesSyncStatus.Failed && !string.IsNullOrEmpty(outcome.Message))
+            {
+                _syncHint = outcome.Message;
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadLocalAsync()
+    {
+        var all = (await Store.GetEnrolmentsAsync()).ToList();
+        _enrolment = all.FirstOrDefault(e => e.MatriculaId == MatriculaId);
+        if (_enrolment == null)
+        {
+            _periods = new List<(int PeriodoId, string? PeriodoName)>();
+            _grades = new List<GradeLineDto>();
+            _selectedPeriodoId = 0;
+            return;
+        }
+
+        _periods = (await Store.GetPeriodsAsync(MatriculaId))
+            .OrderByDescending(x => x.PeriodoId)
+            .ToList();
+        if (_periods.Count > 0 && (_selectedPeriodoId == 0 || _periods.All(p => p.PeriodoId != _selectedPeriodoId)))
+        {
+            _selectedPeriodoId = _periods[0].PeriodoId;
+        }
+
+        await LoadGradesForSelectionAsync();
+    }
+
+    private async Task OnPeriodSelectChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id))
+        {
+            _selectedPeriodoId = id;
+            await LoadGradesForSelectionAsync();
+        }
+    }
+
+    private async Task LoadGradesForSelectionAsync()
+    {
+        if (_enrolment == null || _selectedPeriodoId == 0)
+        {
+            _grades = new List<GradeLineDto>();
+            return;
+        }
+
+        _grades = (await Store.GetGradesAsync(MatriculaId, _selectedPeriodoId)).ToList();
+    }
+
+    private async Task UpdateSyncHintAsync()
+    {
+        var iso = await Store.GetMetaAsync("last_full_sync_utc");
+        if (string.IsNullOrEmpty(iso))
+        {
+            _syncHint = "Última sincronização: ainda não efectuada.";
+            return;
+        }
+
+        if (DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var utc))
+        {
+            var local = utc.ToLocalTime();
+            _syncHint = $"Última sincronização: {local:g}";
+        }
+        else
+        {
+            _syncHint = "Última sincronização: " + iso;
+        }
+    }
+
+    private async Task DownloadBoletimAsync()
+    {
+        if (_enrolment is null || _selectedPeriodoId == 0 || _downloadBusy) {
+            return;
+        }
+
+        _downloadBusy = true;
+        try
+        {
+            var file = await Api.DownloadBoletimAsync(MatriculaId, _selectedPeriodoId);
+            if (file is null)
+            {
+                _syncHint = "Não foi possível gerar o boletim agora.";
+                return;
+            }
+
+            var path = await SaveAndOpenPdfAsync(file, "boletim.pdf");
+            _syncHint = $"Boletim guardado em: {path}";
+        }
+        catch (Exception ex)
+        {
+            _syncHint = $"Falha no download do boletim: {ex.Message}";
+        }
+        finally
+        {
+            _downloadBusy = false;
+        }
+    }
+
+    private async Task DownloadFichaAcademicaAsync()
+    {
+        if (_enrolment is null || _downloadBusy) {
+            return;
+        }
+
+        _downloadBusy = true;
+        try
+        {
+            var file = await Api.DownloadFichaAcademicaAsync(MatriculaId);
+            if (file is null)
+            {
+                _syncHint = "Não foi possível gerar a ficha académica agora.";
+                return;
+            }
+
+            var path = await SaveAndOpenPdfAsync(file, "ficha-academica.pdf");
+            _syncHint = $"Ficha académica guardada em: {path}";
+        }
+        catch (Exception ex)
+        {
+            _syncHint = $"Falha no download da ficha académica: {ex.Message}";
+        }
+        finally
+        {
+            _downloadBusy = false;
+        }
+    }
+
+    private static async Task<string> SaveAndOpenPdfAsync(DownloadFileResult file, string fallbackName)
+    {
+        var rawName = string.IsNullOrWhiteSpace(file.FileName) ? fallbackName : file.FileName;
+        var safeName = string.Concat(rawName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+        if (!safeName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            safeName += ".pdf";
+        }
+
+        var fullPath = Path.Combine(FileSystem.CacheDirectory, safeName);
+        await File.WriteAllBytesAsync(fullPath, file.Content);
+        await Launcher.Default.OpenAsync(new OpenFileRequest
+        {
+            File = new ReadOnlyFile(fullPath),
+        });
+
+        return fullPath;
+    }
+}

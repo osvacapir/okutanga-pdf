@@ -1,0 +1,80 @@
+@implements IDisposable
+@using Radzen
+@inject IAppNotificationService NotificationService
+
+<div class="toaster-container">
+    @foreach (var item in _toasts)
+    {
+        <div class="toast-item @GetSeverityClass(item.Message.Severity)" @key="item.Id">
+            <div class="toast-icon">@GetIcon(item.Message.Severity)</div>
+            <div class="toast-body">
+                @if (!string.IsNullOrWhiteSpace(item.Message.Summary))
+                {
+                    <div class="toast-summary">@item.Message.Summary</div>
+                }
+                @if (!string.IsNullOrWhiteSpace(item.Message.Detail))
+                {
+                    <div class="toast-detail">@item.Message.Detail</div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly List<ToastItem> _toasts = new();
+    private Action<NotificationMessage>? _handler;
+
+    protected override void OnInitialized()
+    {
+        _handler = msg =>
+        {
+            var item = new ToastItem { Id = Guid.NewGuid(), Message = msg };
+            _toasts.Add(item);
+            _ = InvokeAsync(StateHasChanged);
+
+            var durationMs = Math.Max(1000, Convert.ToInt32(msg.Duration ?? 4000));
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(durationMs).ConfigureAwait(false);
+                await InvokeAsync(() =>
+                {
+                    _toasts.RemoveAll(t => t.Id == item.Id);
+                    StateHasChanged();
+                }).ConfigureAwait(false);
+            });
+        };
+        NotificationService.AddListener(_handler);
+    }
+
+    private static string GetSeverityClass(NotificationSeverity severity) => severity switch
+    {
+        NotificationSeverity.Success => "toast-success",
+        NotificationSeverity.Error => "toast-error",
+        NotificationSeverity.Warning => "toast-warning",
+        _ => "toast-info",
+    };
+
+    private static string GetIcon(NotificationSeverity severity) => severity switch
+    {
+        NotificationSeverity.Success => "✓",
+        NotificationSeverity.Error => "✕",
+        NotificationSeverity.Warning => "!",
+        _ => "i",
+    };
+
+    public void Dispose()
+    {
+        if (_handler != null)
+        {
+            NotificationService.RemoveListener(_handler);
+        }
+    }
+
+    private sealed class ToastItem
+    {
+        public Guid Id { get; set; }
+        public NotificationMessage Message { get; set; } = null!;
+    }
+}
+

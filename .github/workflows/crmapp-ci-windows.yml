@@ -1,0 +1,69 @@
+# CI Windows: restore/build/publish só net10.0-windows10.0.19041.0 (windows-latest + workload maui-windows).
+# Separado do Android: SO, workloads e artefactos são diferentes.
+
+name: OlondongeApp CI – Windows
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "**/*.cs"
+      - "**/*.csproj"
+      - "**/*.sln"
+      - "**/*.razor"
+      - ".github/workflows/**"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "**/*.cs"
+      - "**/*.csproj"
+      - "**/*.sln"
+      - "**/*.razor"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows_build:
+    name: Windows – Release (unpackaged publish)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Common CI setup (Windows)
+        uses: ./.github/actions/maui-ci-setup
+        with:
+          workload: maui-windows
+          dotnet-version: "10.0.x"
+
+      # Só o TFM Windows: evita restore desnecessário de iOS/Mac no agente Windows.
+      - name: Restore (Windows TFM only)
+        # `dotnet restore` não suporta `-f` como "framework"; use override do MSBuild para limitar os TFMs.
+        # Para MAUI/Windows é comum precisar também do runtime pack win-x64.
+        run: dotnet restore "OlondongeApp.csproj" -r win-x64 /p:TargetFrameworks=net10.0-windows10.0.19041.0
+
+      - name: Build (Release)
+        run: dotnet build "OlondongeApp.csproj" -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --no-restore
+
+      - name: Publish (output folder)
+        run: dotnet publish "OlondongeApp.csproj" -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --no-restore -o "${{ github.workspace }}/artifacts/windows" /p:PublishReadyToRun=false
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: olondongeapp-windows-release
+          path: artifacts/windows
+          if-no-files-found: error
+          retention-days: 14

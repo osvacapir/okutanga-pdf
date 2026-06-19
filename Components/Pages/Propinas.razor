@@ -1,0 +1,205 @@
+@page "/propinas"
+@implements IDisposable
+@inject IAuthService Auth
+@inject IGradesLocalStore Store
+@inject IGradesSyncService Sync
+@inject NavigationManager Nav
+@using System.Text.Json
+@using OlondongeApp.Components.Shared
+@using OlondongeApp.Models.Dtos
+@using OlondongeApp.Services
+
+<PageTitle>Propinas — Olondonge</PageTitle>
+
+@if (!_ready)
+{
+    <LoadingSkeleton Variant="LoadingSkeleton.LoadingSkeletonVariant.Cards" Items="3" />
+}
+else if (!Auth.IsAuthenticated)
+{
+    <p>A redirecionar…</p>
+}
+else
+{
+    <div class="ol-grades-header-card">
+        <PageHeader Title="Propinas"
+                    Subtitle="@PropinasSubtitle()"
+                    ShowBack="true"
+                    BackHref="/home"
+                    FallbackBackHref="/home" />
+    </div>
+
+    @if (_fees != null)
+    {
+        <div class="ol-filter-card">
+            <div class="ol-filter-header">
+                <strong>Resumo</strong>
+                <span class="ol-muted">Situação actual</span>
+            </div>
+            <div class="ol-filter-grid">
+                <div class="ol-filter-item">
+                    <label>Meses em falta</label>
+                    <div>@(_fees.Summary?.MissingCount ?? 0)</div>
+                </div>
+                <div class="ol-filter-item">
+                    <label>Total pago (recente)</label>
+                    <div>@((_fees.Summary?.PaidTotal ?? 0m).ToString("0.00"))</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ol-filter-card">
+            <div class="ol-filter-header">
+                <strong>Meses em falta</strong>
+                <span class="ol-muted">Ano lectivo da matrícula</span>
+            </div>
+            @if (_fees.MissingMonths.Count == 0)
+            {
+                <EmptyState Title="Tudo em dia"
+                            Description="Não há mensalidades em falta para esta matrícula."
+                            Icon="bi-patch-check"
+                            AdditionalClass="ol-empty-state--inline" />
+            }
+            else
+            {
+                <ul class="mb-0">
+                    @foreach (var m in _fees.MissingMonths)
+                    {
+                        <li>@(m.Name ?? $"{m.Month}/{m.Year}")</li>
+                    }
+                </ul>
+            }
+        </div>
+
+        @if (_fees.Payments.Count > 0)
+        {
+            <div class="ol-filter-card">
+                <div class="ol-filter-header">
+                    <strong>Pagamentos recentes</strong>
+                    <span class="ol-muted">@(_fees.Summary?.RecentPaymentsCount ?? 0) registo(s)</span>
+                </div>
+                <div class="ol-table-wrap">
+                    <table class="ol-table">
+                        <thead>
+                            <tr>
+                                <th>Descrição</th>
+                                <th>Valor</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in _fees.Payments)
+                            {
+                                <tr>
+                                    <td>@(p.Name ?? "—")</td>
+                                    <td>@(p.Price?.ToString("0.00") ?? "—")</td>
+                                    <td>@(p.Status ?? "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="ol-fallback-banner" role="status">
+            <strong>Dados de propinas indisponíveis.</strong>
+            Ainda não há propinas guardadas localmente. Sincronize (⟳) com Internet para descarregar os dados da última vez.
+        </div>
+
+        <div class="ol-filter-card">
+            <div class="ol-filter-header">
+                <strong>Resumo</strong>
+                <span class="ol-muted">Sem ligação aos dados</span>
+            </div>
+            <div class="ol-filter-grid">
+                <div class="ol-filter-item">
+                    <label>Meses em falta</label>
+                    <div class="ol-fallback-nd">N/D</div>
+                </div>
+                <div class="ol-filter-item">
+                    <label>Total pago (recente)</label>
+                    <div class="ol-fallback-nd">N/D</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ol-filter-card">
+            <div class="ol-filter-header">
+                <strong>Meses em falta</strong>
+            </div>
+            <p class="ol-muted mb-0">Sem propinas em cache. Toque em ⟳ para sincronizar com Internet.</p>
+        </div>
+
+        <div class="ol-filter-card">
+            <div class="ol-filter-header">
+                <strong>Pagamentos recentes</strong>
+            </div>
+            <p class="ol-muted mb-0">Sem pagamentos em cache até à próxima sincronização.</p>
+        </div>
+    }
+}
+
+@code {
+    private bool _ready;
+    private StudentFeesResponseDto? _fees;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        if (!Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login", true);
+            return;
+        }
+
+        Sync.SyncFinished += OnSyncFinished;
+        await LoadFeesFromLocalAsync();
+        _ready = true;
+    }
+
+    public void Dispose()
+    {
+        Sync.SyncFinished -= OnSyncFinished;
+    }
+
+    private void OnSyncFinished(GradesSyncOutcome _)
+    {
+        var __ = InvokeAsync(async () =>
+        {
+            await LoadFeesFromLocalAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadFeesFromLocalAsync()
+    {
+        try
+        {
+            await Store.EnsureReadyAsync().ConfigureAwait(false);
+            var json = await Store.GetMetaAsync(StudentPayloadCacheKeys.FeesJson).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                _fees = null;
+                return;
+            }
+
+            var dto = JsonSerializer.Deserialize<StudentFeesResponseDto>(json, AppJson.Options);
+            _fees = dto;
+            if (_fees != null)
+            {
+                _fees.MissingMonths ??= new List<StudentMissingMonthDto>();
+                _fees.Payments ??= new List<StudentFeePaymentDto>();
+            }
+        }
+        catch
+        {
+            _fees = null;
+        }
+    }
+
+    private string PropinasSubtitle() =>
+        _fees is null ? "Dados locais — sincronize para actualizar" : "Mensalidades e estado de pagamento (última sync)";
+}

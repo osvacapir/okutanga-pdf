@@ -1,0 +1,119 @@
+@implements IDisposable
+@inject IAuthService Auth
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="/home" Match="NavLinkMatch.All" @onclick="CloseMenuOnMobile">
+                <span class="nav-icon" aria-hidden="true">🏠</span> Início
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="/grades" Match="NavLinkMatch.Prefix" @onclick="CloseMenuOnMobile">
+                <span class="nav-icon" aria-hidden="true">📘</span> Notas
+            </NavLink>
+        </div>
+
+        @if (Auth.IsAuthenticated)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/historico-academico" @onclick="CloseMenuOnMobile">
+                    <span class="nav-icon" aria-hidden="true">📚</span> Histórico académico
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/curriculo" @onclick="CloseMenuOnMobile">
+                    <span class="nav-icon" aria-hidden="true">📋</span> Grelha curricular
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/horario" @onclick="CloseMenuOnMobile">
+                    <span class="nav-icon" aria-hidden="true">🗓️</span> Horário
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/propinas" @onclick="CloseMenuOnMobile">
+                    <span class="nav-icon" aria-hidden="true">💳</span> Propinas
+                </NavLink>
+            </div>
+        }
+
+        @if (!Auth.IsAuthenticated)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/login" @onclick="CloseMenuOnMobile">
+                    <span class="nav-icon" aria-hidden="true">🔑</span> Entrar
+                </NavLink>
+            </div>
+        }
+
+        <hr class="nav-divider" />
+
+        @if (Auth.IsAuthenticated)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link btn-logout" @onclick="HandleLogout">
+                    <span class="nav-icon" aria-hidden="true">⎋</span> Sair
+                </NavLink>
+            </div>
+        }
+    </nav>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        Auth.AuthenticationStateChanged += OnAuthStateChanged;
+    }
+
+    private void OnAuthStateChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleLogout()
+    {
+        await Auth.LogoutAsync();
+        Navigation.NavigateTo("/login", true);
+    }
+
+    private async Task CloseMenuOnMobile()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                const page = document.querySelector('.page');
+                const isPhone = page && page.classList.contains('layout-phone');
+                if (isPhone) {
+                    const checkbox = document.querySelector('.navbar-toggler');
+                    const sidebar = document.getElementById('sidebar');
+                    const overlay = document.getElementById('sidebar-overlay');
+                    if (checkbox && checkbox.checked) {
+                        checkbox.checked = false;
+                        checkbox.dispatchEvent(new Event('change'));
+                        if (sidebar) sidebar.classList.remove('open');
+                        if (overlay) {
+                            overlay.style.opacity = '0';
+                            setTimeout(() => { overlay.style.display = 'none'; }, 250);
+                        }
+                    }
+                }
+            ");
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    public void Dispose()
+    {
+        Auth.AuthenticationStateChanged -= OnAuthStateChanged;
+    }
+}

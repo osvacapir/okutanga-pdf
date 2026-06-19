@@ -1,0 +1,67 @@
+/* Faixa estreita sobreposta (não desloca o layout). */
+
+.connection-banner-fixed {
+    position: fixed;
+    top: max(0.35rem, calc(env(safe-area-inset-top, 0px) + 0.2rem));
+    left: 0;
+    right: 0;
+    z-index: 5000;
+    display: flex;
+    justify-content: center;
+    padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
+    pointer-events: none;
+}
+
+.connection-banner {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: fit-content;
+    max-width: min(17.5rem, calc(100% - 0.5rem));
+    padding: 0.35rem 0.75rem;
+    font-size: var(--ol-font-xs);
+    line-height: 1.25;
+    color: var(--ol-text-secondary);
+    border-radius: 999px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+    animation: connection-banner-enter 0.22s ease-out;
+}
+
+.connection-banner-offline {
+    background: var(--ol-bg-subtle);
+    border: 1px solid var(--ol-border);
+}
+
+.connection-banner-api-down {
+    background: linear-gradient(90deg, var(--ol-color-danger) 0%, #b91c1c 100%);
+    color: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.connection-banner-api-down .connection-banner-text {
+    color: inherit;
+}
+
+.connection-banner-icon {
+    font-size: var(--ol-font-lg);
+    flex-shrink: 0;
+}
+
+.connection-banner-text {
+    text-align: center;
+    display: block;
+}
+
+@keyframes connection-banner-enter {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

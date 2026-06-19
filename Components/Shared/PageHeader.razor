@@ -1,0 +1,68 @@
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<header class="app-page-header @(ShowBack ? "has-back" : "no-back")">
+    @if (ShowBack)
+    {
+        <button type="button" class="app-page-header-back" @onclick="HandleBackAsync" aria-label="Voltar">
+            <span aria-hidden="true">←</span>
+        </button>
+    }
+    <div class="app-page-header-text">
+        <div class="app-page-header-title-row">
+            <h1 class="app-page-header-title">@Title</h1>
+            @if (!string.IsNullOrWhiteSpace(TitleAside))
+            {
+                <span class="app-page-header-title-aside" title="@TitleAside">@TitleAside</span>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p class="app-page-header-subtitle">@Subtitle</p>
+        }
+    </div>
+    @if (Actions != null)
+    {
+        <div class="app-page-header-actions">
+            @Actions
+        </div>
+    }
+</header>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? TitleAside { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public bool ShowBack { get; set; } = false;
+    [Parameter] public string? BackHref { get; set; }
+    [Parameter] public string FallbackBackHref { get; set; } = "/";
+    [Parameter] public EventCallback OnBackClick { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    private async Task HandleBackAsync()
+    {
+        if (OnBackClick.HasDelegate)
+        {
+            await OnBackClick.InvokeAsync();
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(BackHref))
+        {
+            Navigation.NavigateTo(BackHref!);
+            return;
+        }
+
+        try
+        {
+            var wentBack = await JSRuntime.InvokeAsync<bool>("olondongeTryHistoryBack");
+            if (!wentBack)
+                Navigation.NavigateTo(FallbackBackHref);
+        }
+        catch
+        {
+            Navigation.NavigateTo(FallbackBackHref);
+        }
+    }
+}
+

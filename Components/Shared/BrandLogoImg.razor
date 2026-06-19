@@ -1,0 +1,45 @@
+@using OlondongeApp.Branding
+
+<img src="@Src"
+     alt="@Alt"
+     class="@CssClass"
+     loading="@Loading"
+     @attributes="AdditionalAttributes"
+     @onerror="OnError"
+     @onload="OnLoad" />
+
+@code {
+    /// <summary>Caminhos relativos ao wwwroot; tenta PNG (Resources) antes de SVG.</summary>
+    [Parameter] public string CssClass { get; set; } = string.Empty;
+
+    [Parameter] public string Alt { get; set; } = "Logo";
+
+    [Parameter] public string Loading { get; set; } = "lazy";
+
+    [Parameter] public EventCallback OnImageLoaded { get; set; }
+
+    /// <summary>Invocado quando nenhum dos formatos em <see cref="AppBranding.LogoWebRelativePaths"/> carregou.</summary>
+    [Parameter] public EventCallback OnAllCandidatesFailed { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private int _pathIndex;
+    private readonly string _cacheBust = $"{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}";
+
+    private string Src => $"{AppBranding.LogoWebRelativePaths[_pathIndex]}?v={Uri.EscapeDataString(_cacheBust)}";
+
+    private Task OnError()
+    {
+        if (_pathIndex < AppBranding.LogoWebRelativePaths.Length - 1)
+        {
+            _pathIndex++;
+            return InvokeAsync(StateHasChanged);
+        }
+
+        return OnAllCandidatesFailed.HasDelegate ? OnAllCandidatesFailed.InvokeAsync() : Task.CompletedTask;
+    }
+
+    private Task OnLoad()
+        => OnImageLoaded.HasDelegate ? OnImageLoaded.InvokeAsync() : Task.CompletedTask;
+}

@@ -1,0 +1,119 @@
+/**
+ * Tema Olondonge — tokens reutilizáveis (Indigo + Sky + Emerald).
+ * Consumir sempre via var(--ol-*) em app.css, PageHeader, Header, Toaster, etc.
+ * Escala global de `rem`: ver `responsive.css` (`html { font-size: clamp(...) }`).
+ * Para alterar o look globalmente, edite este ficheiro e, se necessário, responsive.css.
+ */
+:root {
+    /* Marca */
+    --ol-color-primary: #4f46e5;
+    --ol-color-primary-hover: #4338ca;
+    --ol-color-primary-active: #3730a3;
+    --ol-color-primary-soft: #eef2ff;
+    --ol-color-primary-muted: #c7d2fe;
+
+    --ol-color-accent: #0ea5e9;
+    --ol-color-accent-soft: #e0f2fe;
+
+    --ol-color-success: #10b981;
+    --ol-color-success-soft: #d1fae5;
+
+    --ol-color-danger: #ef4444;
+    --ol-color-danger-soft: #fee2e2;
+
+    --ol-color-warning: #f59e0b;
+    --ol-color-warning-soft: #fef3c7;
+
+    /* Superfícies */
+    --ol-bg-page: #f1f5f9;
+    --ol-bg-elevated: #ffffff;
+    --ol-bg-subtle: #f8fafc;
+    --ol-border: #e2e8f0;
+    --ol-border-strong: #cbd5e1;
+
+    /* Texto */
+    --ol-text: #0f172a;
+    --ol-text-secondary: #475569;
+    --ol-text-muted: #64748b;
+    --ol-text-on-brand: #ffffff;
+
+    /**
+     * Tipografia: usar estes tokens em CSS (rem). O tamanho de `rem` segue `html`
+     * em responsive.css (clamp entre telemóvel e desktop) para leitura coerente.
+     */
+    --ol-font-xs: 0.75rem;
+    --ol-font-sm: 0.8125rem;
+    --ol-font-std: 0.875rem;
+    --ol-font-body: 0.9375rem;
+    --ol-font-base: 1rem;
+    --ol-font-md: 1.0625rem;
+    --ol-font-lg: 1.125rem;
+    --ol-font-xl: 1.25rem;
+    --ol-font-2xl: 1.5rem;
+    --ol-font-3xl: 1.875rem;
+    /* Títulos hero / splash: fluído sem media queries redundantes */
+    --ol-font-display: clamp(1.75rem, 5vw + 0.75rem, 3rem);
+    --ol-font-display-sub: clamp(0.9375rem, 1.5vw + 0.65rem, 1.125rem);
+
+    /* Raio e sombra */
+    --ol-radius-sm: 8px;
+    --ol-radius-md: 12px;
+    --ol-radius-lg: 16px;
+    --ol-radius-pill: 999px;
+
+    --ol-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --ol-shadow-md: 0 4px 14px rgba(79, 70, 229, 0.12);
+    --ol-shadow-fab: 0 8px 24px rgba(79, 70, 229, 0.35);
+
+    /* Header (barra superior) */
+    --ol-header-bg: linear-gradient(135deg, #4f46e5 0%, #2563eb 55%, #0ea5e9 100%);
+    --ol-header-border: rgba(255, 255, 255, 0.12);
+    --ol-header-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+
+    /* Sidebar */
+    --ol-sidebar-bg: #1e1b4b;
+    --ol-sidebar-text: rgba(255, 255, 255, 0.88);
+    --ol-sidebar-hover: rgba(255, 255, 255, 0.1);
+
+    /* Inputs */
+    --ol-input-bg: #ffffff;
+    --ol-input-border: #cbd5e1;
+    --ol-input-focus: var(--ol-color-primary);
+
+    /* Ligações (Bootstrap .btn-link herdado) */
+    --ol-link: var(--ol-color-primary);
+    --ol-link-hover: var(--ol-color-primary-hover);
+}
+
+html,
+body {
+    background-color: var(--ol-bg-page);
+    color: var(--ol-text);
+}
+
+/* Botões Bootstrap alinhados ao tema (reutilização sem duplicar em cada .razor) */
+.btn-primary {
+    background-color: var(--ol-color-primary);
+    border-color: var(--ol-color-primary);
+    color: var(--ol-text-on-brand);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--ol-color-primary-hover);
+    border-color: var(--ol-color-primary-hover);
+    color: var(--ol-text-on-brand);
+}
+
+.btn-secondary {
+    background-color: var(--ol-bg-subtle);
+    border-color: var(--ol-border-strong);
+    color: var(--ol-text-secondary);
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus {
+    background-color: var(--ol-border);
+    border-color: var(--ol-border-strong);
+    color: var(--ol-text);
+}

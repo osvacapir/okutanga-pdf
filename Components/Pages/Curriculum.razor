@@ -1,0 +1,303 @@
+@page "/curriculo"
+@implements IDisposable
+@inject IAuthService Auth
+@inject IGradesLocalStore Store
+@inject IStudentAcademicOverviewService Overview
+@inject IGradesSyncService Sync
+@inject NavigationManager Nav
+@using System.Text.Json
+@using OlondongeApp.Components.Shared
+@using OlondongeApp.Models.Dtos
+@using OlondongeApp.Services
+
+<PageTitle>Currículo — Olondonge</PageTitle>
+
+@if (!_ready)
+{
+    <LoadingSkeleton Variant="LoadingSkeleton.LoadingSkeletonVariant.Table" Items="6" />
+}
+else if (!Auth.IsAuthenticated)
+{
+    <p>A redirecionar…</p>
+}
+else
+{
+    <div class="ol-grades-header-card">
+        <PageHeader Title="Currículo"
+                    Subtitle="@_cursoSubtitle"
+                    ShowBack="true"
+                    BackHref="/home"
+                    FallbackBackHref="/home" />
+    </div>
+
+    @if (_classCards.Count == 0 && !_usingLocalFallback)
+    {
+        <p class="ol-muted">Sem currículo em cache. Toque em ⟳ (sincronizar) com Internet ou abra <a href="/grades">Notas</a> e sincronize.</p>
+    }
+    else if (_usingLocalFallback)
+    {
+        <ul class="list-group ol-curriculum-cache-list">
+            @foreach (var name in _fallbackNames)
+            {
+                <li class="list-group-item">
+                    <strong>@name</strong>
+                </li>
+            }
+        </ul>
+        <p class="ol-muted mt-2 mb-0">Lista provisória a partir das notas em SQLite — sem módulos até sincronizar o currículo.</p>
+    }
+    else
+    {
+        <div class="ol-curriculum-cards" aria-label="Currículo por classe">
+            @foreach (var c in _classCards)
+            {
+                <article class="ol-curriculum-class-card">
+                    <header class="ol-curriculum-class-card-header">
+                        <h2 class="ol-curriculum-class-card-title">@FormatClassCardTitle(c)</h2>
+                    </header>
+                    <p class="ol-curriculum-class-mod-section">Módulos</p>
+                    <ul class="ol-curriculum-class-mod-list">
+                        @if (c.Disciplinas is not { Count: > 0 })
+                        {
+                            <li class="ol-curriculum-class-mod-empty ol-muted">Sem módulos nesta classe.</li>
+                        }
+                        else
+                        {
+                            @foreach (var d in c.Disciplinas)
+                            {
+                                <li class="ol-curriculum-class-mod-item">
+                                    <span class="ol-curriculum-class-mod-name">@(string.IsNullOrWhiteSpace(d.DisciplinaNome) ? "—" : d.DisciplinaNome)</span>
+                                    @if (d.ModuloId > 0)
+                                    {
+                                        <span class="ol-curriculum-class-mod-badge">Mód. @d.ModuloId</span>
+                                    }
+                                </li>
+                            }
+                        }
+                    </ul>
+                </article>
+            }
+        </div>
+    }
+}
+
+@code {
+    private bool _ready;
+    private bool _usingLocalFallback;
+
+    private IReadOnlyList<CurriculumClasseGroupDto> _classCards = Array.Empty<CurriculumClasseGroupDto>();
+    private List<string> _fallbackNames = new();
+    private string? _cursoSubtitle;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        if (!Auth.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login", true);
+            return;
+        }
+
+        await LoadCurriculumAsync();
+        _ready = true;
+        Sync.SyncFinished += OnSyncFinished;
+    }
+
+    private void OnSyncFinished(GradesSyncOutcome _)
+    {
+        var __ = InvokeAsync(ReloadDisciplinesAfterSyncAsync);
+    }
+
+    private async Task ReloadDisciplinesAfterSyncAsync()
+    {
+        await LoadCurriculumAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadCurriculumAsync()
+    {
+        _usingLocalFallback = false;
+        _classCards = Array.Empty<CurriculumClasseGroupDto>();
+        _fallbackNames.Clear();
+        _cursoSubtitle = null;
+
+        try
+        {
+            await Store.EnsureReadyAsync().ConfigureAwait(false);
+            var json = await Store.GetMetaAsync(StudentPayloadCacheKeys.CurriculumJson).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                var response = StudentGradesApi.NormalizeCurriculumResponse(
+                    JsonSerializer.Deserialize<StudentCurriculumResponseDto>(json, AppJson.Options));
+                if ((response?.Classes?.Count ?? 0) > 0)
+                {
+                    _classCards = response!.Classes!.ToList();
+                    _cursoSubtitle = BuildSubtitle(response.CursoName, _classCards);
+                    return;
+                }
+
+                if ((response?.Items?.Count ?? 0) > 0)
+                {
+                    ApplySyntheticClasseIdsWhenNoCourseClasses(response!);
+                    _classCards = GroupFlatItemsIntoClassCards(response!.Items);
+                    _cursoSubtitle = BuildSubtitle(response.CursoName, _classCards);
+                    return;
+                }
+            }
+
+            try
+            {
+                var fallback = await Overview.GetDisciplineNamesForCourseFromSyncedGradesAsync().ConfigureAwait(false);
+                _fallbackNames = fallback.ToList();
+                _usingLocalFallback = _fallbackNames.Count > 0;
+            }
+            catch
+            {
+                _fallbackNames.Clear();
+                _usingLocalFallback = false;
+            }
+        }
+        catch
+        {
+            _classCards = Array.Empty<CurriculumClasseGroupDto>();
+            _fallbackNames.Clear();
+            _usingLocalFallback = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        Sync.SyncFinished -= OnSyncFinished;
+    }
+
+    private static string FormatClassCardTitle(CurriculumClasseGroupDto c)
+    {
+        var raw = c.ClasseName?.Trim();
+        if (string.IsNullOrEmpty(raw))
+        {
+            return c.ClasseId > 0 ? $"Classe #{c.ClasseId}" : "Classe";
+        }
+
+        var t = StripTrailingClasseSuffix(raw);
+        const string lead = "classe ";
+        if (t.Length >= lead.Length && t.StartsWith(lead, StringComparison.OrdinalIgnoreCase))
+        {
+            t = t[lead.Length..].TrimStart();
+        }
+
+        return string.IsNullOrEmpty(t) ? "Classe" : $"{t} Classe";
+    }
+
+    /// <summary>Remove sufixo " Classe" para normalizar (ex.: "10ª Classe" → núcleo "10ª").</summary>
+    private static string StripTrailingClasseSuffix(string nm)
+    {
+        var t = nm.Trim();
+        const string suf = " Classe";
+        if (t.EndsWith(suf, StringComparison.OrdinalIgnoreCase) && t.Length > suf.Length)
+        {
+            return t[..^suf.Length].TrimEnd();
+        }
+
+        return t;
+    }
+
+    private static string? BuildSubtitle(string? cursoNome, IReadOnlyList<CurriculumClasseGroupDto> cards)
+    {
+        var bits = new List<string>();
+        if (!string.IsNullOrWhiteSpace(cursoNome))
+        {
+            bits.Add(cursoNome.Trim());
+        }
+
+        var nClasses = cards.Count;
+        if (nClasses > 0)
+        {
+            bits.Add(nClasses == 1 ? "1 classe" : $"{nClasses} classes");
+        }
+
+        var nMod = cards.Sum(c => c.Disciplinas.Count(static d => d.ModuloId > 0));
+        if (nMod > 0)
+        {
+            bits.Add(nMod == 1 ? "1 módulo" : $"{nMod} módulos");
+        }
+
+        return bits.Count > 0 ? string.Join(" · ", bits) : null;
+    }
+
+    private static List<CurriculumClasseGroupDto> GroupFlatItemsIntoClassCards(IReadOnlyList<CurriculumItemDto> items)
+    {
+        static string Norm(string? s) => s?.Trim() ?? "";
+
+        return items
+            .GroupBy(i => (i.ClasseId, Norm(i.ClasseName)))
+            .Select(g =>
+            {
+                var first = g.First();
+                return new CurriculumClasseGroupDto
+                {
+                    ClasseId = first.ClasseId,
+                    ClasseName = string.IsNullOrWhiteSpace(first.ClasseName) ? null : first.ClasseName.Trim(),
+                    Disciplinas = g
+                        .OrderBy(static x => x.DisciplinaName, StringComparer.CurrentCultureIgnoreCase)
+                        .ThenBy(static x => x.ModuloId)
+                        .Select(i => new CurriculumDisciplinaModuloDto
+                        {
+                            ModuloId = i.ModuloId,
+                            CursoDisciplinaId = i.CursoDisciplinaId,
+                            DisciplinaNome = i.DisciplinaName,
+                            DisciplinaAbreviatura = i.DisciplinaAbreviatura,
+                            TeacherNames = i.TeacherNames is { Count: > 0 }
+                                ? new List<string>(i.TeacherNames)
+                                : new List<string>(),
+                        })
+                        .ToList(),
+                };
+            })
+            .OrderBy(static c => c.ClasseName ?? "\uFFFF", StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(static c => c.ClasseId)
+            .ToList();
+    }
+
+    private static void ApplySyntheticClasseIdsWhenNoCourseClasses(StudentCurriculumResponseDto response)
+    {
+        if (response.CourseClasses is { Count: > 0 })
+        {
+            return;
+        }
+
+        var nameToId = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var next = 1;
+        foreach (var it in response.Items)
+        {
+            var nm = it.ClasseName?.Trim();
+            if (string.IsNullOrEmpty(nm))
+            {
+                continue;
+            }
+
+            if (!nameToId.ContainsKey(nm))
+            {
+                nameToId[nm] = next++;
+            }
+        }
+
+        foreach (var it in response.Items)
+        {
+            if (it.ClasseId > 0)
+            {
+                continue;
+            }
+
+            var nm = it.ClasseName?.Trim();
+            if (string.IsNullOrEmpty(nm))
+            {
+                continue;
+            }
+
+            if (nameToId.TryGetValue(nm, out var id))
+            {
+                it.ClasseId = id;
+            }
+        }
+    }
+}

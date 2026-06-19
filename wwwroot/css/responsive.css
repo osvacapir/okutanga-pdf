@@ -1,0 +1,61 @@
+/**
+ * Variáveis e utilitários responsivos - (base alinhada ao Ulongisi)
+ * Breakpoints: phone < 641px, tablet 641–1024px, desktop > 1024px
+ */
+:root {
+    --breakpoint-phone: 640.98px;
+    --breakpoint-tablet: 1024px;
+    --content-max-width: 1080px;
+    --touch-min-height: 44px;
+    --sidebar-width: 250px;
+}
+
+/**
+ * Base `rem` por largura de viewport: todo o app (Bootstrap + tokens --ol-font-*)
+ * escala ligeiramente entre telemóvel estreito e tablet/desktop.
+ */
+html {
+    font-size: clamp(14px, 2.85vw + 5px, 17px);
+}
+
+@media (min-width: 1025px) {
+    html {
+        font-size: clamp(15px, 0.6vw + 13px, 17px);
+    }
+}
+
+/* Conteúdo principal: largura máxima e centralizado (PC/tablet) */
+.content-wrapper {
+    width: 100%;
+    max-width: var(--content-max-width);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+/* Área de toque mínima para botões/links em mobile */
+@media (max-width: 640.98px) {
+    .nav-link,
+    .btn:not(.btn-sm),
+    button.nav-link {
+        min-height: var(--touch-min-height);
+        display: inline-flex;
+        align-items: center;
+    }
+}
+
+@media (min-width: 641px) {
+    .content-wrapper {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
+@media (min-width: 1025px) {
+    .content-wrapper {
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+    }
+}
+

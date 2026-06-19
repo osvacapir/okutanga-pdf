@@ -1,0 +1,70 @@
+@*
+    Esqueleto de carregamento simples. Usar em vez de <p>A carregar…</p>.
+    Variantes:
+      - Page (padrão): cabeçalho + linhas + cartão.
+      - Cards: blocos tipo lista de cartões.
+      - Table: linhas de tabela.
+*@
+
+<div class="ol-skel @ResolveVariantClass()" aria-busy="true" aria-live="polite" role="status">
+    <span class="visually-hidden">A carregar…</span>
+
+    @if (Variant == LoadingSkeletonVariant.Page)
+    {
+        <div class="ol-skel-head">
+            <div class="ol-skeleton ol-skeleton-title"></div>
+            <div class="ol-skeleton ol-skeleton-subtitle"></div>
+        </div>
+        @for (var i = 0; i < Math.Max(1, Lines); i++)
+        {
+            <div class="ol-skeleton ol-skeleton-line @(i == Lines - 1 ? "short" : null)"></div>
+        }
+        @if (ShowBlock)
+        {
+            <div class="ol-skel-block ol-skeleton"></div>
+        }
+    }
+    else if (Variant == LoadingSkeletonVariant.Cards)
+    {
+        @for (var i = 0; i < Math.Max(1, Items); i++)
+        {
+            <div class="ol-skel-card">
+                <div class="ol-skeleton ol-skeleton-line"></div>
+                <div class="ol-skeleton ol-skeleton-line short"></div>
+            </div>
+        }
+    }
+    else if (Variant == LoadingSkeletonVariant.Table)
+    {
+        <div class="ol-skel-table">
+            @for (var i = 0; i < Math.Max(2, Items); i++)
+            {
+                <div class="ol-skel-row">
+                    <div class="ol-skeleton ol-skeleton-line"></div>
+                    <div class="ol-skeleton ol-skeleton-line short"></div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    public enum LoadingSkeletonVariant
+    {
+        Page,
+        Cards,
+        Table,
+    }
+
+    [Parameter] public LoadingSkeletonVariant Variant { get; set; } = LoadingSkeletonVariant.Page;
+    [Parameter] public int Lines { get; set; } = 3;
+    [Parameter] public int Items { get; set; } = 3;
+    [Parameter] public bool ShowBlock { get; set; } = true;
+
+    private string ResolveVariantClass() => Variant switch
+    {
+        LoadingSkeletonVariant.Cards => "ol-skel--cards",
+        LoadingSkeletonVariant.Table => "ol-skel--table",
+        _ => "ol-skel--page",
+    };
+}
