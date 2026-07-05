@@ -1,0 +1,36 @@
+CHECKLIST PUBLICAÇÃO — Okutanga PDF
+Zetabyte.tech · Osvaldo Capir · osvacapir@gmail.com
+================================================================================
+
+CONCLUÍDO NO REPOSITÓRIO
+[✓] Testes unitários (25)
+[✓] Build Release Windows + Android
+[✓] Política de privacidade (/privacidade + wwwroot/legal/privacidade.html)
+[✓] Metadados empresa na app e manifest Windows
+[✓] Textos Play Store e Microsoft Store (pasta store/)
+[✓] Scripts publish-playstore.sh e publish-windows-store.ps1
+[✓] CI: testes + workflow AAB (okutangapdf-publish-play.yml)
+
+ANTES DE SUBMETER — GOOGLE PLAY
+[ ] Conta Play Console activa
+[ ] Hospedar privacidade em https://zetabyte.tech/okutangapdf/privacidade
+      (copiar wwwroot/legal/privacidade.html)
+[ ] Secrets GitHub: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+      ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+[ ] GitHub Actions → OkutangaPDF Publish – Play Store AAB → Run workflow
+[ ] Play Console → Criar app → upload AAB → store/play-store-listing.txt
+[ ] Data safety: sem recolha de dados
+[ ] Screenshots telemóvel (mín. 2)
+[ ] Classificação de conteúdo (questionário)
+
+ANTES DE SUBMETER — MICROSOFT STORE
+[ ] Conta Partner Center + reserva nome Okutanga PDF
+[ ] Certificado de assinatura MSIX (substituir CN no Package.appxmanifest se necessário)
+[ ] scripts/publish-windows-store.ps1
+[ ] Partner Center → novo submission → store/microsoft-store-listing.txt
+[ ] Screenshots desktop (mín. 1)
+[ ] Política de privacidade URL na ficha
+
+SUPORTE
+E-mail: osvacapir@gmail.com
+Empresa: https://zetabyte.tech

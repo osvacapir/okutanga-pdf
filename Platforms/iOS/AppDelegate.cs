@@ -1,6 +1,6 @@
 using Foundation;
 
-namespace OlondongeApp
+namespace OkutangaPDF
 {
     [Register("AppDelegate")]
     public class AppDelegate : MauiUIApplicationDelegate

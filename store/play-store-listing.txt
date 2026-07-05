@@ -1,0 +1,44 @@
+=== Google Play Console — Okutanga PDF ===
+Empresa: Zetabyte.tech
+Desenvolvedor: Osvaldo Capir
+E-mail: osvacapir@gmail.com
+Package: com.okutangapdf.app
+Política de privacidade: https://zetabyte.tech/okutangapdf/privacidade
+
+--- Título (30 chars) ---
+Okutanga PDF
+
+--- Descrição curta (80 chars) ---
+Leitor PDF rápido, offline, com pesquisa, marcadores e «Abrir com».
+
+--- Descrição completa ---
+Okutanga PDF é um leitor de documentos PDF simples, rápido e totalmente offline.
+
+Abra PDFs da biblioteca, do armazenamento do telemóvel ou de outras apps («Partilhar» / «Abrir com»). Navegue página a página ou em scroll contínuo, faça zoom, pesquise texto, guarde marcadores e retome a leitura onde parou.
+
+Características:
+• Leitura offline — os seus ficheiros ficam no dispositivo
+• Pesquisa no texto com navegação entre ocorrências
+• Marcadores e histórico de documentos recentes
+• Modo ecrã inteiro e interface optimizada para telemóvel
+• Tema claro, escuro ou automático
+• Sem conta, sem publicidade, sem recolha de dados
+
+Desenvolvido por Zetabyte.tech.
+Suporte: osvacapir@gmail.com
+
+--- Data safety (Play Console) ---
+Recolha de dados: Não
+Dados partilhados: Não
+Encriptação em trânsito: N/A (sem transmissão)
+Pedido de eliminação: desinstalar a app
+
+--- Categoria ---
+Produtividade
+
+--- Classificação de conteúdo ---
+Todos / PEGI 3 / sem conteúdo sensível
+
+--- Contacto do developer ---
+osvacapir@gmail.com
+https://zetabyte.tech

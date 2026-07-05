@@ -1,111 +1,58 @@
 @page "/"
-@layout OlondongeApp.Components.Layout.EmptyLayout
-@inject IAuthService AuthService
+@layout OkutangaPDF.Components.Layout.EmptyLayout
 @inject NavigationManager Navigation
+@inject IIncomingPdfService IncomingPdf
 @inject ILogger<Splash> Logger
 
-<PageTitle>Carregando - Olondonge</PageTitle>
+<PageTitle>@AppPublisherInfo.AppName</PageTitle>
 
 <div class="splash-container">
     <div class="splash-content">
         <div class="splash-logo">
-            <BrandLogoImg Alt="Logo Olondonge"
-                          Loading="eager"
-                          OnImageLoaded="OnImageLoaded"
-                          OnAllCandidatesFailed="OnAllLogoFormatsFailed" />
+            <BrandLogoImg Alt="@($"Logo {AppPublisherInfo.AppName}")" Loading="eager" />
             <div class="logo-pulse"></div>
         </div>
 
-        <h1 class="splash-title">Olondonge</h1>
-        <p class="splash-subtitle">Estudante</p>
+        <h1 class="splash-title">@AppPublisherInfo.AppName</h1>
+        <p class="splash-subtitle">Leitor PDF multiplataforma</p>
 
         <div class="loading-container">
             <div class="spinner"></div>
             <p class="loading-text">@loadingMessage</p>
         </div>
-
-        <div class="version-info">
-            <small>Versão 1.0.0 · Zetabyte · vosikola.com</small>
-        </div>
     </div>
 </div>
 
 @code {
-    private string loadingMessage = "A carregar...";
-    private bool imageLoaded = false;
-    private bool navigationStarted = false;
+    private string loadingMessage = "A carregar…";
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
-        await Task.Delay(2000);
-
-        if (!imageLoaded)
-        {
-            Logger.LogWarning("Imagem não carregou no tempo esperado, continuando...");
-        }
-
-        await CheckAuthenticationAndNavigate();
-    }
-
-    private Task OnImageLoaded()
-    {
-        if (!imageLoaded)
-        {
-            imageLoaded = true;
-            Logger.LogInformation("Logo carregado com sucesso na página Splash");
-            StateHasChanged();
-        }
-
-        return Task.CompletedTask;
-    }
-
-    private Task OnAllLogoFormatsFailed()
-    {
-        Logger.LogWarning("Não foi possível carregar nenhum ficheiro de logo em wwwroot/images.");
-        imageLoaded = true;
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
-
-    private async Task CheckAuthenticationAndNavigate()
-    {
-        if (navigationStarted) return;
-        navigationStarted = true;
+        await Task.Delay(150);
 
         try
         {
-            loadingMessage = "A verificar sessão...";
-            StateHasChanged();
-
-            await AuthService.InitializeAsync();
-            var isAuthenticated = AuthService.IsAuthenticated;
-
-            if (isAuthenticated)
+            if (IncomingPdfBridge.HasBridgePending)
             {
-                Logger.LogInformation("Utilizador autenticado, redirecionando para o painel inicial...");
-                loadingMessage = "Bem-vindo de volta!";
+                loadingMessage = "A importar PDF…";
                 StateHasChanged();
-                await Task.Delay(500);
-                Navigation.NavigateTo("/home", replace: true);
+                await IncomingPdfBridge.FlushToServiceAsync(IncomingPdf);
             }
-            else
+
+            var pending = await IncomingPdf.ConsumePendingAsync();
+            if (pending is not null)
             {
-                Logger.LogInformation("Utilizador não autenticado, redirecionando para login...");
-                loadingMessage = "A redirecionar...";
-                StateHasChanged();
-                await Task.Delay(500);
-                Navigation.NavigateTo("/login", replace: true);
+                Navigation.NavigateTo($"/leitor/{pending.Id}", replace: true);
+                return;
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Erro ao verificar autenticação");
-            loadingMessage = "Erro ao carregar. A redirecionar...";
-            StateHasChanged();
-            await Task.Delay(1000);
-            Navigation.NavigateTo("/login", replace: true);
+            Logger.LogWarning(ex, "Falha ao processar PDF pendente");
         }
+
+        Navigation.NavigateTo("/biblioteca", replace: true);
     }
 }
-

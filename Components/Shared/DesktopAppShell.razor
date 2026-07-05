@@ -1,0 +1,93 @@
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<header class="win-chrome" role="banner">
+    <div class="win-titlebar">
+        <div class="win-titlebar-brand">
+            <BrandLogoImg Alt="@AppPublisherInfo.AppName" Loading="lazy" />
+            <span class="win-titlebar-name">@AppPublisherInfo.AppName</span>
+        </div>
+    </div>
+
+    <div class="win-commandbar" role="toolbar" aria-label="Comandos da aplicação">
+        <nav class="win-nav" aria-label="Navegação principal">
+            <NavLink class="win-nav-item" href="/biblioteca" ActiveClass="win-nav-item--active">
+                <i class="bi bi-bookshelf" aria-hidden="true"></i>
+                <span>Biblioteca</span>
+            </NavLink>
+            <NavLink class="win-nav-item" href="/leitor" Match="NavLinkMatch.Prefix" ActiveClass="win-nav-item--active">
+                <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                <span>Leitor</span>
+            </NavLink>
+            <NavLink class="win-nav-item" href="/definicoes" ActiveClass="win-nav-item--active">
+                <i class="bi bi-gear" aria-hidden="true"></i>
+                <span>Definições</span>
+            </NavLink>
+        </nav>
+
+        <div class="win-commandbar-actions">
+            <button type="button"
+                    class="win-cmd-btn"
+                    title="Abrir PDF…"
+                    @onclick="OpenPdfAsync">
+                <i class="bi bi-folder2-open" aria-hidden="true"></i>
+                <span>Abrir PDF</span>
+            </button>
+            <span class="win-cmd-sep" aria-hidden="true"></span>
+            <button type="button"
+                    class="win-cmd-btn win-cmd-btn--icon"
+                    title="@ThemeButtonTitle()"
+                    aria-label="@ThemeButtonTitle()"
+                    @onclick="ToggleThemeAsync">
+                <i class="bi @ThemeButtonIcon()" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+</header>
+
+@code {
+    private string _themeMode = "auto";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _themeMode = await JS.InvokeAsync<string>("okutangaTheme.getMode");
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        try
+        {
+            var result = await JS.InvokeAsync<ThemeToggleResult>("okutangaTheme.toggle");
+            _themeMode = result.Mode ?? "auto";
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private string ThemeButtonIcon() => _themeMode switch
+    {
+        "dark" => "bi-moon-stars-fill",
+        "light" => "bi-sun-fill",
+        _ => "bi-circle-half",
+    };
+
+    private string ThemeButtonTitle() => _themeMode switch
+    {
+        "dark" => "Tema escuro",
+        "light" => "Tema claro",
+        _ => "Tema automático",
+    };
+
+    private sealed class ThemeToggleResult
+    {
+        public string? Mode { get; set; }
+    }
+
+    private void OpenPdfAsync() => Navigation.NavigateTo("/leitor?pick=true");
+}

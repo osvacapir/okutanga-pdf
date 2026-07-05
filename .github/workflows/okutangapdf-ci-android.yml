@@ -1,0 +1,131 @@
+# CI Android: restore/build/publish só net10.0-android (Linux + JDK + workload maui-android).
+# Não usar dotnet restore na .sln aqui — o projeto MAUI inclui iOS/Mac e falha no Ubuntu (NETSDK1178).
+
+name: OkutangaPDF CI – Android
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "**/*.cs"
+      - "**/*.csproj"
+      - "**/*.sln"
+      - "**/*.razor"
+      - "Keystore/**"
+      - ".github/workflows/**"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "**/*.cs"
+      - "**/*.csproj"
+      - "**/*.sln"
+      - "**/*.razor"
+      - "Keystore/**"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android_build:
+    name: Android – APK (assinado se secrets existirem)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+      # Caminho canónico na repo (igual ao uso local em Keystore/crmtic-upload/)
+      ANDROID_SIGNING_KEYSTORE_DIR: Keystore/crmtic-upload
+      ANDROID_SIGNING_KEYSTORE_FILENAME: crmtic-upload.keystore
+      # Build/publish: um único RID (CI mais rápido). O csproj lista 4 RIDs — o restore tem de cobrir todos.
+      ANDROID_RID: android-arm64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Common CI setup (Android)
+        uses: ./.github/actions/maui-ci-setup
+        with:
+          workload: maui-android
+          java-version: "17"
+          dotnet-version: "10.0.x"
+
+      # Sobrescreve RuntimeIdentifiers do csproj (4 ABIs) para só android-arm64 no CI.
+      # Vários `-r` + lista no csproj pode gerar NETSDK1083 (RID inválido com ';').
+      - name: Restore (Android TFM, RID único)
+        run: |
+          dotnet restore "okutangaPDF.csproj" \
+            /p:TargetFrameworks=net10.0-android \
+            /p:RuntimeIdentifiers="${ANDROID_RID}" \
+            /p:RuntimeIdentifier="${ANDROID_RID}"
+
+      - name: Build (Release)
+        run: |
+          dotnet build "okutangaPDF.csproj" -c Release -f net10.0-android -r "${ANDROID_RID}" --no-restore \
+            /p:RuntimeIdentifiers="${ANDROID_RID}" \
+            /p:RuntimeIdentifier="${ANDROID_RID}"
+
+      - name: Unit tests
+        run: dotnet test "OkutangaPDF.Tests/OkutangaPDF.Tests.csproj" -c Release --verbosity minimal
+
+      # Grava o .keystore na pasta da app (fora do Git). PRs de forks não têm secrets → build sem assinatura.
+      - name: Publish APK
+        id: android_publish
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="${ANDROID_SIGNING_KEYSTORE_DIR}/${ANDROID_SIGNING_KEYSTORE_FILENAME}"
+          mkdir -p "${ANDROID_SIGNING_KEYSTORE_DIR}"
+
+          if [ -n "${KEYSTORE_B64:-}" ] && [ -n "${STORE_PASS:-}" ] && [ -n "${KEY_ALIAS:-}" ] && [ -n "${KEY_PASS:-}" ]; then
+            echo "${KEYSTORE_B64}" | base64 -d > "${KEYSTORE_PATH}"
+            dotnet publish "okutangaPDF.csproj" \
+              -c Release \
+              -f net10.0-android \
+              -r "${ANDROID_RID}" \
+              --no-restore \
+              /p:RuntimeIdentifiers="${ANDROID_RID}" \
+              /p:RuntimeIdentifier="${ANDROID_RID}" \
+              /p:AndroidPackageFormat=apk \
+              /p:AndroidKeyStore=true \
+              /p:AndroidSigningKeyStore="${KEYSTORE_PATH}" \
+              /p:AndroidSigningStorePass="${STORE_PASS}" \
+              /p:AndroidSigningKeyAlias="${KEY_ALIAS}" \
+              /p:AndroidSigningKeyPass="${KEY_PASS}"
+            echo "artifact_label=signed" >> "${GITHUB_OUTPUT}"
+          else
+            dotnet publish "okutangaPDF.csproj" \
+              -c Release \
+              -f net10.0-android \
+              -r "${ANDROID_RID}" \
+              --no-restore \
+              /p:RuntimeIdentifiers="${ANDROID_RID}" \
+              /p:RuntimeIdentifier="${ANDROID_RID}" \
+              /p:AndroidPackageFormat=apk \
+              /p:AndroidKeyStore=false
+            echo "artifact_label=unsigned" >> "${GITHUB_OUTPUT}"
+          fi
+
+      # Não uses `if:` com `secrets.*` — o GitHub não aceita `secrets` em condições `if`.
+      # Para condicionar passos, usa outputs (ex.: steps.android_publish.outputs.artifact_label).
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: okutangapdf-android-apk-${{ steps.android_publish.outputs.artifact_label }}
+          path: |
+            bin/Release/net10.0-android/**/*.apk
+          if-no-files-found: error
+          retention-days: 14

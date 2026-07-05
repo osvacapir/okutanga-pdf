@@ -1,16 +1,16 @@
 /**
- * Tema Olondonge — tokens reutilizáveis (Indigo + Sky + Emerald).
+ * Tema okutangaPDF — tokens reutilizáveis (vermelho coral + neutros).
  * Consumir sempre via var(--ol-*) em app.css, PageHeader, Header, Toaster, etc.
  * Escala global de `rem`: ver `responsive.css` (`html { font-size: clamp(...) }`).
  * Para alterar o look globalmente, edite este ficheiro e, se necessário, responsive.css.
  */
 :root {
     /* Marca */
-    --ol-color-primary: #4f46e5;
-    --ol-color-primary-hover: #4338ca;
-    --ol-color-primary-active: #3730a3;
-    --ol-color-primary-soft: #eef2ff;
-    --ol-color-primary-muted: #c7d2fe;
+    --ol-color-primary: #dc2626;
+    --ol-color-primary-hover: #b91c1c;
+    --ol-color-primary-active: #991b1b;
+    --ol-color-primary-soft: #fef2f2;
+    --ol-color-primary-muted: #fecaca;
 
     --ol-color-accent: #0ea5e9;
     --ol-color-accent-soft: #e0f2fe;

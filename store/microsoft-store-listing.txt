@@ -1,0 +1,40 @@
+=== Microsoft Partner Center — Okutanga PDF ===
+Empresa: Zetabyte.tech
+Desenvolvedor: Osvaldo Capir
+E-mail: osvacapir@gmail.com
+Política de privacidade: https://zetabyte.tech/okutangapdf/privacidade
+
+--- Nome da aplicação ---
+Okutanga PDF
+
+--- Descrição curta ---
+Leitor PDF offline para Windows — pesquisa, marcadores, zoom e «Abrir com».
+
+--- Descrição ---
+Okutanga PDF é um leitor de PDF nativo para Windows, desenvolvido com .NET MAUI.
+
+Abra documentos PDF a partir da biblioteca integrada, do explorador de ficheiros ou da linha de comandos. Leia em scroll contínuo ou página a página, pesquise texto, adicione marcadores e retome a leitura no ponto exacto.
+
+• Totalmente offline — ficheiros e preferências no PC
+• Motor pdf.js integrado, rápido e fiável
+• Pesquisa com navegação entre ocorrências
+• Interface desktop optimizada e modo ecrã inteiro
+• Tema claro/escuro
+• Sem subscrição, sem publicidade, sem telemetria
+
+Editor: Zetabyte.tech · Osvaldo Capir
+Suporte: osvacapir@gmail.com
+
+--- Categoria ---
+Productivity
+
+--- Idade ---
+3+ / Livre para todas as idades
+
+--- Notas de versão 1.0 ---
+Versão inicial: biblioteca, leitor, pesquisa, marcadores, partilha, temas.
+
+--- Antes de submeter MSIX ---
+1. Certificado de assinatura Partner Center
+2. dotnet publish -c Release -f net10.0-windows10.0.19041.0 -r win-x64 -p:PublishForStore=true
+3. Associar ficheiros .pdf à app no manifest (já configurado)

@@ -1,8 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Maui.ApplicationModel;
-using OlondongeApp.Services;
+using OkutangaPDF.Models;
+using OkutangaPDF.Services;
 
-namespace OlondongeApp;
+namespace OkutangaPDF;
 
 public partial class App : Application
 {
@@ -13,7 +13,8 @@ public partial class App : Application
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        return new Window(new MainPage()) { Title = "Olondonge" };
+        TryCaptureLaunchPdf(activationState);
+        return new Window(new MainPage()) { Title = AppPublisherInfo.AppName };
     }
 
     protected override async void OnStart()
@@ -26,17 +27,33 @@ public partial class App : Application
 
         try
         {
-            var auth = AppServices.Provider.GetRequiredService<IAuthService>();
-            await auth.InitializeAsync().ConfigureAwait(false);
-            var store = AppServices.Provider.GetRequiredService<IGradesLocalStore>();
-            await store.EnsureReadyAsync().ConfigureAwait(false);
-            var notifier = AppServices.Provider.GetRequiredService<IGradesUpdateNotifier>();
-            // Android: RequestPermissions tem de correr na thread de UI; após ConfigureAwait(false) podemos estar na pool.
-            await MainThread.InvokeOnMainThreadAsync(() => notifier.EnsureNotificationPermissionAsync()).ConfigureAwait(false);
+            var recent = AppServices.Provider.GetRequiredService<IRecentDocumentsStore>();
+            await recent.EnsureReadyAsync().ConfigureAwait(false);
+
+            if (IncomingPdfBridge.HasBridgePending)
+            {
+                var incoming = AppServices.Provider.GetRequiredService<IIncomingPdfService>();
+                await IncomingPdfBridge.FlushToServiceAsync(incoming).ConfigureAwait(false);
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            // evita crash na arranque se serviços falharem
+            System.Diagnostics.Debug.WriteLine("okutangaPDF startup: " + ex);
         }
+    }
+
+    private static void TryCaptureLaunchPdf(IActivationState? activationState)
+    {
+#if WINDOWS
+        var args = Environment.GetCommandLineArgs();
+        foreach (var arg in args)
+        {
+            if (arg.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) && File.Exists(arg))
+            {
+                IncomingPdfBridge.SetPendingPath(arg);
+                break;
+            }
+        }
+#endif
     }
 }

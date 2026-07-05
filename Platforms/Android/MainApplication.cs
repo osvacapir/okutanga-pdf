@@ -1,7 +1,7 @@
 using Android.App;
 using Android.Runtime;
 
-namespace OlondongeApp
+namespace OkutangaPDF
 {
     [Application]
     public class MainApplication : MauiApplication

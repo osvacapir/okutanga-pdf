@@ -160,7 +160,7 @@ h1:focus {
     }
 }
 
-/* Olondonge MVP — cores via css/theme.css */
+/* okutangaPDF MVP — cores via css/theme.css */
 .ol-muted {
     color: var(--ol-text-muted);
     font-size: var(--ol-font-body);
@@ -951,50 +951,14 @@ h1:focus {
     }
 }
 
-/* Sidebar / layout base (alinhado ao Ulongisi) */
+/* Layout principal */
 .page {
     position: relative;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
     width: 100%;
-}
-
-.sidebar {
-    width: var(--sidebar-width, 250px);
-    background: var(--ol-sidebar-bg);
-    color: var(--ol-sidebar-text);
-    overflow-y: auto;
-    transition: transform 0.25s ease;
-}
-
-.nav-scrollable {
-    padding-top: 0.75rem;
-}
-
-.nav-link {
-    color: var(--ol-sidebar-text);
-    border-radius: 0.5rem;
-    padding: 0.6rem 0.75rem;
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-}
-
-.nav-link:hover {
-    color: #fff;
-    background: var(--ol-sidebar-hover);
-}
-
-.nav-divider {
-    border-color: rgba(255, 255, 255, 0.15);
-    margin: 0.75rem 1rem;
-}
-
-.btn-logout {
-    color: rgba(255, 255, 255, 0.85);
-    cursor: pointer;
 }
 
 main {
@@ -1012,42 +976,6 @@ main > article.content {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: 0.75rem 0;
-}
-
-.sidebar-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.35);
-    opacity: 0;
-    transition: opacity 0.25s ease;
-    z-index: 900;
-}
-
-/* Mobile: sidebar off-canvas */
-.layout-phone .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    transform: translateX(-100%);
-    z-index: 950;
-}
-
-.layout-phone .sidebar.open {
-    transform: translateX(0);
-}
-
-.navbar-toggler {
-    display: none;
-}
-
-.layout-phone .navbar-toggler {
-    display: none;
-}
-
-.layout-phone-only {
-    display: block;
 }
 
 /* EmptyLayout: filho directo de #app; preenche altura (Login/Splash trazem o fundo). */
@@ -1748,37 +1676,24 @@ main > article.content {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Dock flutuante estilo glass (telefone autenticado)                          */
+/* Navegação inferior (dock) — só telemóvel                                           */
 /* -------------------------------------------------------------------------- */
 
-.layout-tablet .ol-glass-dock-root {
-    display: none;
-}
-
-.layout-phone-dock .sidebar,
-.layout-phone-dock .sidebar-overlay {
-    display: none !important;
-}
-
-.layout-phone-dock .menu-toggle {
-    display: none !important;
-}
-
-.layout-phone-dock main .content .content-wrapper {
+.layout-mobile-app.layout-with-dock main .content .content-wrapper {
     padding-bottom: calc(5.85rem + env(safe-area-inset-bottom, 0px));
     transition: padding-bottom 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.layout-phone-dock .ol-fab-refresh {
+.layout-mobile-app.layout-with-dock .ol-fab-refresh {
     bottom: calc(5.1rem + env(safe-area-inset-bottom, 0px));
     transition: bottom 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.layout-phone-dock.dock-bottom-hidden main .content .content-wrapper {
+.layout-mobile-app.layout-with-dock.dock-bottom-hidden main .content .content-wrapper {
     padding-bottom: calc(1.1rem + env(safe-area-inset-bottom, 0px));
 }
 
-.layout-phone-dock.dock-bottom-hidden .ol-fab-refresh {
+.layout-mobile-app.layout-with-dock.dock-bottom-hidden .ol-fab-refresh {
     bottom: calc(1.15rem + env(safe-area-inset-bottom, 0px));
 }
 
@@ -1915,6 +1830,15 @@ main > article.content {
     text-align: center;
 }
 
+.ol-glass-dock-pill--compact {
+    justify-content: space-around;
+    width: min(100%, 360px);
+}
+
+.ol-glass-dock-pill--compact .ol-glass-dock-cluster {
+    display: contents;
+}
+
 .ol-glass-dock-home {
     flex-shrink: 0;
     width: 3.35rem;
@@ -1949,8 +1873,8 @@ main > article.content {
 
 @media (prefers-reduced-motion: reduce) {
     .ol-glass-dock-root,
-    .layout-phone-dock main .content .content-wrapper,
-    .layout-phone-dock .ol-fab-refresh {
+    .layout-mobile-app.layout-with-dock main .content .content-wrapper,
+    .layout-mobile-app.layout-with-dock .ol-fab-refresh {
         transition: none;
     }
 

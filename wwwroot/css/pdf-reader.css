@@ -1,0 +1,762 @@
+/* Leitor PDF okutangaPDF */
+.ol-pdf-reader {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: calc(100vh - 8rem);
+}
+
+.ol-pdf-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--ol-bg-elevated);
+    border: 1px solid var(--ol-border);
+    border-radius: var(--ol-radius-md);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.ol-pdf-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.ol-pdf-toolbar-title {
+    flex: 1 1 8rem;
+    min-width: 0;
+    font-size: var(--ol-font-sm);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ol-pdf-page-indicator {
+    font-size: var(--ol-font-sm);
+    color: var(--ol-text-secondary);
+    min-width: 5rem;
+    text-align: center;
+}
+
+.ol-pdf-viewport {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem;
+    background: var(--ol-bg-subtle);
+    border-radius: var(--ol-radius-md);
+    border: 1px solid var(--ol-border);
+    -webkit-overflow-scrolling: touch;
+}
+
+.ol-pdf-canvas-wrap {
+    box-shadow: var(--ol-shadow-md, 0 4px 16px rgba(0, 0, 0, 0.12));
+    background: #fff;
+    line-height: 0;
+}
+
+.ol-pdf-canvas-wrap canvas {
+    display: block;
+    max-width: 100%;
+    height: auto !important;
+}
+
+.ol-pdf-reader-placeholder {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ol-bg-subtle);
+    border: 1px dashed var(--ol-border-strong);
+    border-radius: var(--ol-radius-md);
+    padding: 2rem;
+}
+
+.ol-pdf-reader-empty {
+    text-align: center;
+    max-width: 22rem;
+}
+
+.ol-pdf-reader-icon {
+    font-size: 3rem;
+    color: var(--ol-color-primary);
+    display: block;
+    margin-bottom: 0.75rem;
+}
+
+.ol-pdf-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    min-height: 40vh;
+    color: var(--ol-text-muted);
+}
+
+.ol-biblioteca-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ol-biblioteca-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--ol-bg-elevated);
+    border: 1px solid var(--ol-border);
+    border-radius: var(--ol-radius-md);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ol-biblioteca-item:hover,
+.ol-biblioteca-item:focus-visible {
+    border-color: var(--ol-color-primary-muted);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.ol-biblioteca-item-icon {
+    font-size: 1.5rem;
+    color: var(--ol-color-primary);
+    flex-shrink: 0;
+}
+
+.ol-biblioteca-item-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.ol-biblioteca-item-title {
+    font-weight: 600;
+    font-size: var(--ol-font-body);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ol-biblioteca-item-meta {
+    font-size: var(--ol-font-xs);
+    color: var(--ol-text-muted);
+}
+
+.ol-home-tile-btn {
+    border: none;
+    cursor: pointer;
+    text-align: inherit;
+    width: 100%;
+}
+
+.ol-home-kpi-value-sm {
+    font-size: var(--ol-font-lg) !important;
+}
+
+.ol-pdf-reader--active {
+    min-height: calc(100dvh - 6rem);
+}
+
+.ol-pdf-pages-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding-bottom: 2rem;
+}
+
+.ol-pdf-page-slot {
+    background: #fff;
+    box-shadow: var(--ol-shadow-md, 0 4px 16px rgba(0, 0, 0, 0.12));
+    line-height: 0;
+}
+
+.ol-pdf-page-slot canvas {
+    display: block;
+    max-width: 100%;
+    height: auto !important;
+}
+
+.ol-pdf-goto-form {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.ol-pdf-goto-input {
+    width: 3.25rem;
+    text-align: center;
+}
+
+.ol-pdf-toolbar-actions {
+    flex-wrap: wrap;
+}
+
+.ol-pdf-panel {
+    padding: 0.75rem;
+    background: var(--ol-bg-elevated);
+    border: 1px solid var(--ol-border);
+    border-radius: var(--ol-radius-md);
+}
+
+.ol-pdf-findbar {
+    padding: 0.5rem 0.75rem;
+    background: var(--ol-bg-elevated);
+    border: 1px solid var(--ol-border);
+    border-radius: var(--ol-radius-md);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.ol-pdf-findbar-form {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.ol-pdf-findbar-icon {
+    color: var(--ol-text-secondary);
+    flex-shrink: 0;
+}
+
+.ol-pdf-findbar-input {
+    flex: 1 1 12rem;
+    min-width: 8rem;
+    border: 1px solid var(--ol-border);
+    border-radius: var(--ol-radius-sm);
+    padding: 0.35rem 0.6rem;
+    font-size: var(--ol-font-sm);
+    background: var(--ol-bg);
+    color: var(--ol-text);
+}
+
+.ol-pdf-findbar-input:focus {
+    outline: 2px solid var(--ol-color-primary);
+    outline-offset: 1px;
+    border-color: var(--ol-color-primary);
+}
+
+.ol-pdf-findbar-status {
+    min-width: 5.5rem;
+    text-align: center;
+    font-size: var(--ol-font-xs);
+    color: var(--ol-text-secondary);
+    flex-shrink: 0;
+}
+
+.ol-pdf-findbar-empty {
+    color: var(--ol-color-danger, #dc3545);
+}
+
+.ol-pdf-findbar-btn {
+    padding: 0.2rem 0.45rem;
+    line-height: 1;
+}
+
+.ol-pdf-findbar-snippet {
+    margin-top: 0.35rem;
+    padding-left: 1.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ol-pdf-page-slot--highlight {
+    outline: 3px solid var(--ol-color-primary);
+    outline-offset: 4px;
+    border-radius: 2px;
+    transition: outline-color 0.3s ease;
+}
+
+.ol-pdf-search-form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.ol-pdf-search-results {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+    max-height: 10rem;
+    overflow-y: auto;
+}
+
+.ol-pdf-search-hit {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: var(--ol-bg-subtle);
+    border-radius: var(--ol-radius-sm);
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.35rem;
+    cursor: pointer;
+}
+
+.ol-pdf-search-hit strong {
+    display: block;
+    font-size: var(--ol-font-xs);
+    color: var(--ol-color-primary);
+}
+
+.ol-pdf-bookmark-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.ol-pdf-bookmark-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.ol-pdf-bookmark-go {
+    flex: 1;
+    text-align: left;
+    border: none;
+    background: transparent;
+    padding: 0.35rem 0;
+    cursor: pointer;
+}
+
+.ol-pdf-thumbs {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding: 0.5rem 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.ol-pdf-thumb {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    border: 2px solid var(--ol-border);
+    border-radius: var(--ol-radius-sm);
+    background: var(--ol-bg-elevated);
+    padding: 0.25rem;
+    cursor: pointer;
+    font-size: var(--ol-font-xs);
+}
+
+.ol-pdf-thumb--active {
+    border-color: var(--ol-color-primary);
+}
+
+.ol-pdf-thumb canvas {
+    display: block;
+    width: 60px;
+    height: auto;
+}
+
+.ol-biblioteca-item-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Isolamento desktop vs compacto (telefone / viewport estreita)              */
+/* -------------------------------------------------------------------------- */
+
+.ol-pdf-chrome--compact {
+    display: none;
+}
+
+.ol-pdf-chrome--desktop {
+    display: block;
+}
+
+.ol-pdf-panel-close {
+    display: none;
+}
+
+/* Telefone nativo */
+.ol-pdf-reader--compact .ol-pdf-chrome--desktop {
+    display: none !important;
+}
+
+.ol-pdf-reader--compact .ol-pdf-chrome--compact {
+    display: block;
+}
+
+.ol-pdf-reader--compact .ol-pdf-panel-close {
+    display: inline-flex;
+}
+
+/* Viewport estreita — mesmo em desktop shell ou janela redimensionada */
+@media (max-width: 768px) {
+    .ol-pdf-reader--active .ol-pdf-chrome--desktop {
+        display: none !important;
+    }
+
+    .ol-pdf-reader--active .ol-pdf-chrome--compact {
+        display: block;
+    }
+
+    .ol-pdf-reader--active {
+        gap: 0;
+        min-height: 100dvh;
+    }
+
+    .ol-pdf-reader--active .ol-pdf-viewport {
+        flex: 1;
+        min-height: 0;
+        border: none;
+        border-radius: 0;
+        padding: 0;
+        margin-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    .ol-pdf-reader--active .ol-pdf-findbar--responsive {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 35;
+        margin: 0;
+        border-radius: 0;
+        padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+    }
+
+    .ol-pdf-reader--active .ol-pdf-panel--responsive {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 35;
+        margin: 0;
+        border-radius: 0;
+        max-height: 45dvh;
+        overflow-y: auto;
+        padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+    }
+
+    .ol-pdf-reader--active .ol-pdf-panel-close {
+        display: inline-flex;
+    }
+
+    .ol-pdf-reader--active .ol-pdf-thumbs--responsive {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+        z-index: 35;
+        background: var(--ol-bg-elevated);
+        border-top: 1px solid var(--ol-border);
+        padding: 0.5rem 0.75rem;
+        margin: 0;
+    }
+
+    .layout-mobile-app:has(.ol-pdf-reader--active) .header-container,
+    .layout-desktop-app:has(.ol-pdf-reader--active) .win-chrome {
+        display: none;
+    }
+
+    .layout-mobile-app:has(.ol-pdf-reader--active) .ol-glass-dock-root {
+        display: none !important;
+    }
+
+    .layout-mobile-app:has(.ol-pdf-reader--active) main .content .content-wrapper,
+    .layout-desktop-app:has(.ol-pdf-reader--active) .content-wrapper {
+        padding: 0 !important;
+        padding-bottom: 0 !important;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Leitor compacto (telefone) — documento + barra de páginas + menu           */
+/* -------------------------------------------------------------------------- */
+
+.ol-pdf-reader--compact {
+    gap: 0;
+    min-height: 100dvh;
+    position: relative;
+}
+
+.ol-pdf-reader--compact .ol-pdf-viewport {
+    flex: 1;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    /* espaço para a barra de páginas fixa em baixo */
+    margin-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+}
+
+.ol-pdf-mobile-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.65rem;
+    padding-bottom: calc(0.45rem + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--ol-bg-elevated) 94%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--ol-border);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.ol-pdf-mobile-nav-btn--menu {
+    margin-right: 0.15rem;
+}
+
+.ol-pdf-mobile-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--ol-border);
+    border-radius: 999px;
+    background: var(--ol-bg);
+    color: var(--ol-text);
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+
+.ol-pdf-mobile-nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.ol-pdf-mobile-page-btn {
+    min-width: 5.5rem;
+    height: 2.75rem;
+    border: none;
+    border-radius: 999px;
+    background: var(--ol-color-primary-soft, rgba(13, 110, 253, 0.12));
+    color: var(--ol-color-primary);
+    font-weight: 600;
+    font-size: var(--ol-font-sm);
+    cursor: pointer;
+    padding: 0 1rem;
+}
+
+.ol-pdf-mobile-page-sep {
+    opacity: 0.55;
+    font-weight: 400;
+    margin: 0 0.1rem;
+}
+
+.ol-pdf-mobile-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.ol-pdf-mobile-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    padding: 0.75rem 1rem calc(4.5rem + env(safe-area-inset-bottom, 0px));
+    background: var(--ol-bg-elevated);
+    border-radius: var(--ol-radius-lg) var(--ol-radius-lg) 0 0;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.15);
+    max-height: 70dvh;
+    overflow-y: auto;
+}
+
+.ol-pdf-mobile-sheet-handle {
+    width: 2.5rem;
+    height: 0.25rem;
+    border-radius: 999px;
+    background: var(--ol-border-strong, #ccc);
+    margin: 0 auto 0.5rem;
+}
+
+.ol-pdf-mobile-sheet-title {
+    font-size: var(--ol-font-sm);
+    font-weight: 600;
+    text-align: center;
+    margin: 0 0 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--ol-text-secondary);
+}
+
+.ol-pdf-mobile-sheet-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.ol-pdf-mobile-sheet-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 4.25rem;
+    padding: 0.65rem 0.5rem;
+    border: 1px solid var(--ol-border);
+    border-radius: var(--ol-radius-md);
+    background: var(--ol-bg-subtle);
+    color: var(--ol-text);
+    font-size: var(--ol-font-xs);
+    text-align: center;
+    cursor: pointer;
+}
+
+.ol-pdf-mobile-sheet-item i {
+    font-size: 1.25rem;
+    color: var(--ol-color-primary);
+}
+
+.ol-pdf-mobile-sheet--goto {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.ol-pdf-mobile-goto-form {
+    padding: 0.25rem 0;
+}
+
+.ol-pdf-findbar--overlay,
+.ol-pdf-panel--overlay,
+.ol-pdf-thumbs--overlay {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 35;
+    margin: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+}
+
+.ol-pdf-findbar--overlay {
+    top: 0;
+    padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+}
+
+.ol-pdf-panel--overlay {
+    top: calc(2.75rem + env(safe-area-inset-top, 0px));
+    max-height: 40dvh;
+    overflow-y: auto;
+}
+
+.ol-pdf-thumbs--overlay {
+    bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+    background: var(--ol-bg-elevated);
+    border-top: 1px solid var(--ol-border);
+    padding: 0.5rem 0.75rem;
+}
+
+.ol-pdf-immersive-exit {
+    position: fixed;
+    top: calc(0.65rem + env(safe-area-inset-top, 0px));
+    right: 0.65rem;
+    z-index: 42;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: none;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+}
+
+/* Ecrã inteiro desktop */
+.ol-pdf-reader--immersive.ol-pdf-reader--desktop .ol-pdf-toolbar {
+    display: none;
+}
+
+.ol-pdf-reader--immersive.ol-pdf-reader--desktop .ol-pdf-viewport {
+    min-height: 100%;
+}
+
+.ol-pdf-immersive-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0.75rem;
+    background: rgba(20, 20, 20, 0.72);
+    backdrop-filter: blur(10px);
+    color: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.ol-pdf-reader--immersive.ol-pdf-reader--desktop:hover .ol-pdf-immersive-bar,
+.ol-pdf-reader--immersive.ol-pdf-reader--desktop:focus-within .ol-pdf-immersive-bar {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.ol-pdf-immersive-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.ol-pdf-immersive-page {
+    min-width: 4.5rem;
+    text-align: center;
+    font-size: var(--ol-font-sm);
+}
+
+.layout-mobile-app.layout-reader-active .header-container,
+.layout-mobile-app:has(.ol-pdf-reader--compact.ol-pdf-reader--active) .header-container {
+    display: none;
+}
+
+.layout-mobile-app.layout-reader-active .ol-glass-dock-root,
+.layout-mobile-app:has(.ol-pdf-reader--compact.ol-pdf-reader--active) .ol-glass-dock-root {
+    display: none !important;
+}
+
+.layout-mobile-app.layout-reader-active main .content .content-wrapper,
+.layout-mobile-app:has(.ol-pdf-reader--compact.ol-pdf-reader--active) main .content .content-wrapper {
+    padding: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+.layout-mobile-app.layout-reader-active .ol-pdf-reader--compact,
+.layout-mobile-app:has(.ol-pdf-reader--compact.ol-pdf-reader--active) .ol-pdf-reader--compact {
+    min-height: 100dvh;
+}
+
+.layout-mobile-app.layout-reader-immersive main .content,
+.layout-mobile-app:has(.ol-pdf-reader--compact.ol-pdf-reader--immersive) main .content {
+    min-height: 100dvh;
+}
+
+/* Ecrã inteiro compacto: documento máximo, barra de páginas mantém-se */
+.ol-pdf-reader--compact.ol-pdf-reader--immersive .ol-pdf-viewport {
+    margin-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+}

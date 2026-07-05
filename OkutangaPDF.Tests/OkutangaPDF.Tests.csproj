@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>OkutangaPDF.Tests</RootNamespace>
+    <EnableMSTestRunner>true</EnableMSTestRunner>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="MSTest" Version="3.10.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Helpers\PdfFileHelpers.cs" Link="Helpers\PdfFileHelpers.cs" />
+    <Compile Include="..\Helpers\PdfReaderMath.cs" Link="Helpers\PdfReaderMath.cs" />
+    <Compile Include="..\Models\PdfDocumentInfo.cs" Link="Models\PdfDocumentInfo.cs" />
+    <Compile Include="..\Models\ToastMessage.cs" Link="Models\ToastMessage.cs" />
+    <Compile Include="..\Services\IPdfFileService.cs" Link="Services\IPdfFileService.cs" />
+    <Compile Include="..\Services\IncomingPdfService.cs" Link="Services\IncomingPdfService.cs" />
+    <Compile Include="..\Services\AppNotificationService.cs" Link="Services\AppNotificationService.cs" />
+  </ItemGroup>
+
+</Project>

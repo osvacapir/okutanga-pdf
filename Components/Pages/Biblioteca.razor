@@ -1,0 +1,148 @@
+@page "/biblioteca"
+@inject IRecentDocumentsStore RecentStore
+@inject IPdfFileService FileService
+@inject NavigationManager Nav
+
+<PageTitle>Biblioteca — @AppPublisherInfo.AppName</PageTitle>
+
+<PageHeader Title="Biblioteca" Subtitle="Documentos abertos recentemente">
+    <Actions>
+        <button type="button" class="btn btn-sm btn-primary" @onclick="OpenPickerAsync">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i> Abrir PDF
+        </button>
+    </Actions>
+</PageHeader>
+
+@if (_loading)
+{
+    <div class="ol-pdf-loading" role="status">
+        <div class="spinner-border spinner-border-sm text-primary" role="presentation"></div>
+        <span>A carregar biblioteca…</span>
+    </div>
+}
+else if (_documents.Count == 0)
+{
+    <p class="text-muted">Ainda não há documentos recentes.</p>
+    <button type="button" class="btn btn-primary" @onclick="OpenPickerAsync">Abrir primeiro PDF</button>
+}
+else
+{
+    <ul class="ol-biblioteca-list" aria-label="Documentos recentes">
+        @foreach (var doc in _documents)
+        {
+            <li class="ol-biblioteca-row">
+                <a class="ol-biblioteca-item" href="@($"/leitor/{doc.Id}")">
+                    <i class="bi bi-file-earmark-pdf ol-biblioteca-item-icon" aria-hidden="true"></i>
+                    <div class="ol-biblioteca-item-body">
+                        <div class="ol-biblioteca-item-title" title="@doc.FileName">@doc.FileName</div>
+                        <div class="ol-biblioteca-item-meta">
+                            @FormatOpenedAt(doc.OpenedAtUtc)
+                            · @FileService.FormatFileSize(doc.FileSizeBytes)
+                            @if (doc.PageCount > 0)
+                            {
+                                <text> · pág. @doc.LastPage/@doc.PageCount</text>
+                            }
+                            @if (!doc.FileExists)
+                            {
+                                <text> · <span class="text-danger">ficheiro em falta</span></text>
+                            }
+                        </div>
+                    </div>
+                </a>
+                <div class="ol-biblioteca-item-actions">
+                    @if (doc.FileExists)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Partilhar"
+                                @onclick="() => ShareAsync(doc)">
+                            <i class="bi bi-share" aria-hidden="true"></i>
+                        </button>
+                    }
+                    <button type="button" class="btn btn-sm btn-outline-danger" title="Remover da biblioteca"
+                            @onclick="() => RemoveAsync(doc)">
+                        <i class="bi bi-trash" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-warning mt-3" role="alert">@_message</div>
+}
+
+@code {
+    private bool _loading = true;
+    private string? _message;
+    private IReadOnlyList<PdfDocumentInfo> _documents = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+        await RecentStore.EnsureReadyAsync();
+        _documents = await RecentStore.GetRecentAsync();
+        _loading = false;
+    }
+
+    private void OpenPickerAsync() => Nav.NavigateTo("/leitor?pick=true");
+
+    private async Task RemoveAsync(PdfDocumentInfo doc)
+    {
+        await RecentStore.RemoveAsync(doc.Id);
+        _message = $"«{doc.FileName}» removido da biblioteca.";
+        await LoadAsync();
+    }
+
+    private async Task ShareAsync(PdfDocumentInfo doc)
+    {
+        try
+        {
+            await FileService.ShareAsync(doc);
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+        }
+    }
+
+    private static string FormatOpenedAt(DateTime utc)
+    {
+        var delta = DateTime.UtcNow - utc;
+        if (delta < TimeSpan.FromMinutes(1)) return "agora";
+        if (delta < TimeSpan.FromHours(1))
+        {
+            var m = (int)Math.Round(delta.TotalMinutes);
+            return m <= 1 ? "há 1 min" : $"há {m} min";
+        }
+        if (delta < TimeSpan.FromDays(1))
+        {
+            var h = (int)Math.Floor(delta.TotalHours);
+            return h <= 1 ? "há 1 h" : $"há {h} h";
+        }
+        if (delta < TimeSpan.FromDays(7))
+        {
+            var d = (int)Math.Floor(delta.TotalDays);
+            return d <= 1 ? "ontem" : $"há {d} dias";
+        }
+        return utc.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+    }
+}
+
+<style>
+    .ol-biblioteca-row {
+        display: flex;
+        align-items: stretch;
+        gap: 0.35rem;
+    }
+
+    .ol-biblioteca-row .ol-biblioteca-item {
+        flex: 1;
+    }
+</style>

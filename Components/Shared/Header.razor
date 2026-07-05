@@ -1,34 +1,17 @@
-@implements IDisposable
-@inject IAuthService Auth
-@inject NavigationManager Navigation
-@inject IConnectivityService ConnectivityService
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 <div class="header-container">
     <div class="header-left">
-        <button class="menu-toggle" @onclick="OnMenuToggle" aria-label="Toggle menu">
-            <span class="menu-icon">≡</span>
-        </button>
         <div class="header-brand-logo" aria-hidden="true">
-            <BrandLogoImg Alt="Olondonge" Loading="lazy" />
+            <BrandLogoImg Alt="@AppPublisherInfo.AppName" Loading="lazy" />
         </div>
-        <h1 class="app-title @HeaderTitleGroupClass()" title="@HeaderTitleTooltip()">
-            <span class="app-title-brand">Olondonge</span>
-            @if (ShowProcessInHeader)
-            {
-                <span class="app-title-process">@Auth.NumProcesso</span>
-            }
+        <h1 class="app-title" title="@AppPublisherInfo.AppName">
+            <span class="app-title-brand">@AppPublisherInfo.AppName</span>
         </h1>
     </div>
 
     <div class="header-right">
-        @if (isOffline)
-        {
-            <div class="offline-status" title="Sem internet">
-                <span class="badge offline">Offline</span>
-            </div>
-        }
-
         <button type="button"
                 class="header-action header-action--theme"
                 title="@ThemeButtonTitle()"
@@ -37,57 +20,17 @@
             <i class="bi @ThemeButtonIcon()" aria-hidden="true"></i>
         </button>
 
-        @if (Auth.IsAuthenticated)
-        {
-            <NavLink class="header-action header-action--propinas"
-                     href="/propinas"
-                     title="Propinas"
-                     aria-label="Propinas"
-                     ActiveClass="header-action--active">
-                <i class="bi bi-credit-card-2-front" aria-hidden="true"></i>
-            </NavLink>
-
-            <div class="user-info">
-                <div class="user-details">
-                    <span class="user-name">@((Auth.DisplayName ?? "Estudante"))</span>
-                </div>
-
-                <div class="user-avatar" @onclick="ToggleUserMenu">
-                    <div class="avatar-initials">@GetInitials()</div>
-                </div>
-
-                @if (showUserMenu)
-                {
-                    <div class="user-menu">
-                        <div class="user-menu-header">
-                            <div class="user-menu-avatar">
-                                <div class="avatar-initials">@GetInitials()</div>
-                            </div>
-                            <div class="user-menu-info">
-                                <div class="user-menu-name">@((Auth.DisplayName ?? "Estudante"))</div>
-                            </div>
-                        </div>
-
-                        <div class="user-menu-divider"></div>
-
-                        <div class="user-menu-item logout" @onclick="HandleLogout">
-                            <span>Sair</span>
-                        </div>
-                    </div>
-                }
-            </div>
-        }
+        <button type="button"
+                class="header-action"
+                title="Abrir PDF"
+                aria-label="Abrir PDF"
+                @onclick="OpenPdfAsync">
+            <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+        </button>
     </div>
-
-    @if (showUserMenu)
-    {
-        <div class="user-menu-overlay" @onclick="ToggleUserMenu"></div>
-    }
 </div>
 
 @code {
-    private bool showUserMenu;
-    private bool isOffline;
     private string _themeMode = "auto";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -95,27 +38,21 @@
         if (!firstRender) return;
         try
         {
-            _themeMode = await JS.InvokeAsync<string>("olondongeTheme.getMode");
+            _themeMode = await JS.InvokeAsync<string>("okutangaTheme.getMode");
             StateHasChanged();
         }
-        catch
-        {
-            // sem JS no boot — fallback "auto"
-        }
+        catch { }
     }
 
     private async Task ToggleThemeAsync()
     {
         try
         {
-            var result = await JS.InvokeAsync<ThemeToggleResult>("olondongeTheme.toggle");
+            var result = await JS.InvokeAsync<ThemeToggleResult>("okutangaTheme.toggle");
             _themeMode = result.Mode ?? "auto";
             StateHasChanged();
         }
-        catch
-        {
-            // ignore
-        }
+        catch { }
     }
 
     private string ThemeButtonIcon() => _themeMode switch
@@ -135,64 +72,7 @@
     private sealed class ThemeToggleResult
     {
         public string? Mode { get; set; }
-        public string? Effective { get; set; }
     }
 
-    [Parameter] public EventCallback OnMenuToggle { get; set; }
-
-    private bool ShowProcessInHeader =>
-        Auth.IsAuthenticated && !string.IsNullOrWhiteSpace(Auth.NumProcesso);
-
-    protected override void OnInitialized()
-    {
-        isOffline = !ConnectivityService.IsOnline;
-        ConnectivityService.ReachabilityChanged += OnConnectivityReachabilityChanged;
-        Auth.AuthenticationStateChanged += OnAuthStateChanged;
-    }
-
-    private void OnAuthStateChanged()
-    {
-        _ = InvokeAsync(StateHasChanged);
-    }
-
-    private string HeaderTitleGroupClass() => ShowProcessInHeader ? "header-title-group--has-process" : "";
-
-    private string? HeaderTitleTooltip() =>
-        ShowProcessInHeader ? $"N.º processo {Auth.NumProcesso}" : null;
-
-    private void OnConnectivityReachabilityChanged(object? sender, ConnectivityChangedInfo e)
-    {
-        isOffline = !e.IsOnline;
-        _ = InvokeAsync(StateHasChanged);
-    }
-
-    private void ToggleUserMenu()
-    {
-        showUserMenu = !showUserMenu;
-    }
-
-    private string GetInitials()
-    {
-        var name = (Auth.DisplayName ?? "Estudante").Trim();
-        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0) return "??";
-        if (parts.Length == 1) return parts[0].Length >= 2 ? parts[0][..2].ToUpperInvariant() : parts[0].ToUpperInvariant();
-        var a = parts[0][0];
-        var b = parts[^1][0];
-        return ("" + a + b).ToUpperInvariant();
-    }
-
-    private async Task HandleLogout()
-    {
-        showUserMenu = false;
-        await Auth.LogoutAsync();
-        Navigation.NavigateTo("/login", true);
-    }
-
-    public void Dispose()
-    {
-        ConnectivityService.ReachabilityChanged -= OnConnectivityReachabilityChanged;
-        Auth.AuthenticationStateChanged -= OnAuthStateChanged;
-    }
+    private void OpenPdfAsync() => Navigation.NavigateTo("/leitor?pick=true");
 }
-

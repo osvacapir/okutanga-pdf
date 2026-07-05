@@ -1,10 +1,10 @@
-// Gestor de tema (Olondonge): light / dark / auto.
+// Gestor de tema (okutangaPDF): light / dark / auto.
 // - "auto" não fixa atributo (segue prefers-color-scheme via @media em theme-dark.css).
 // - "light"/"dark" fixam <html data-theme="...">.
 // Persistência em localStorage (não bloqueante, sem dependências do Blazor).
 
 (function () {
-    if (window.olondongeTheme) {
+    if (window.okutangaTheme) {
         return;
     }
 
@@ -80,7 +80,7 @@
         applyMode(readStored());
     }
 
-    window.olondongeTheme = {
+    window.okutangaTheme = {
         init: init,
         getMode: getMode,
         getEffective: getEffective,

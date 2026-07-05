@@ -1,18 +1,15 @@
-// Dock flutuante (Olondonge): swipe entre secções + ocultar ao fazer scroll para baixo.
-// Orden visual no dock (esquerda → direita): Notas · Horário · Início · Histórico · Grelha.
-// Swipe left = avança índice; swipe right = recua. Início é o ponto central.
+// Dock flutuante (okutangaPDF): swipe entre secções + ocultar ao fazer scroll para baixo.
+// Ordem no dock: Biblioteca · Leitor · Definições.
 
 (function () {
-    if (window.olondongeDockNav) {
+    if (window.okutangaDockNav) {
         return;
     }
 
     const ROUTES = [
-        '/grades',
-        '/horario',
-        '/home',
-        '/historico-academico',
-        '/curriculo',
+        '/biblioteca',
+        '/leitor',
+        '/definicoes',
     ];
 
     const HIDDEN_CLASS = 'ol-glass-dock-root--hidden';
@@ -85,7 +82,7 @@
         if (dockRoot) {
             dockRoot.classList.toggle(HIDDEN_CLASS, hidden);
         }
-        if (pageRoot && pageRoot.classList.contains('layout-phone-dock')) {
+        if (pageRoot && pageRoot.classList.contains('layout-mobile-app')) {
             pageRoot.classList.toggle('dock-bottom-hidden', hidden);
         }
     }
@@ -194,7 +191,7 @@
         );
     }
 
-    window.olondongeDockNav = { init: init };
+    window.okutangaDockNav = { init: init };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

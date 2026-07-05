@@ -1,0 +1,72 @@
+@page "/privacidade"
+@using OkutangaPDF.Models
+
+<PageTitle>Política de privacidade — @AppPublisherInfo.AppName</PageTitle>
+
+<div class="ol-legal-page">
+    <PageHeader Title="Política de privacidade" Subtitle="@AppPublisherInfo.AppName" />
+
+    <article class="card ol-settings-card">
+        <div class="card-body ol-legal-body">
+            <p class="text-muted small">Última actualização: 5 de Julho de 2026</p>
+
+            <h2 class="h6">1. Responsável</h2>
+            <p>
+                <strong>@AppPublisherInfo.AppName</strong> é desenvolvido por
+                <strong>@AppPublisherInfo.DeveloperName</strong> (@AppPublisherInfo.CompanyName).
+                Contacto: <a href="mailto:@AppPublisherInfo.SupportEmail">@AppPublisherInfo.SupportEmail</a>.
+            </p>
+
+            <h2 class="h6">2. Dados que recolhemos</h2>
+            <p>
+                A aplicação <strong>não recolhe, transmite nem vende dados pessoais</strong>.
+                Não existe registo de conta, analytics de terceiros, publicidade nem ligação a servidores
+                do editor para leitura de PDFs.
+            </p>
+
+            <h2 class="h6">3. Dados armazenados no dispositivo</h2>
+            <ul>
+                <li>PDFs que abre ou importa (cópia local na pasta privada da app)</li>
+                <li>Histórico de documentos recentes, página de leitura, zoom e marcadores (SQLite local)</li>
+                <li>Preferências de tema e leitura (armazenamento local do sistema)</li>
+            </ul>
+            <p>Estes dados permanecem no seu dispositivo e podem ser removidos ao desinstalar a app ou apagar entradas na biblioteca.</p>
+
+            <h2 class="h6">4. Permissões</h2>
+            <ul>
+                <li><strong>Abrir ficheiros PDF</strong> — para ler documentos que selecciona ou recebe via «Partilhar» / «Abrir com»</li>
+                <li><strong>Armazenamento local</strong> — para guardar cópias importadas e metadados de leitura</li>
+                <li><strong>Manter ecrã ligado</strong> (opcional) — apenas se activar nas definições durante a leitura</li>
+            </ul>
+
+            <h2 class="h6">5. Partilha com terceiros</h2>
+            <p>
+                Não partilhamos dados com terceiros. A funcionalidade «Partilhar» usa apenas o diálogo
+                nativo do sistema operativo; o destino é escolhido por si.
+            </p>
+
+            <h2 class="h6">6. Crianças</h2>
+            <p>A app não se destina especificamente a menores de 13 anos e não recolhe dados de identificação.</p>
+
+            <h2 class="h6">7. Alterações</h2>
+            <p>
+                Esta política pode ser actualizada. A data no topo indica a versão vigente.
+                Alterações relevantes serão reflectidas nesta página e na listagem da loja.
+            </p>
+
+            <h2 class="h6">8. Contacto</h2>
+            <p>
+                Questões sobre privacidade:
+                <a href="mailto:@AppPublisherInfo.SupportEmail">@AppPublisherInfo.SupportEmail</a>
+                · <a href="@AppPublisherInfo.CompanyUrl" target="_blank" rel="noopener">@AppPublisherInfo.CompanyUrl</a>
+            </p>
+        </div>
+    </article>
+</div>
+
+<style>
+    .ol-legal-page { max-width: 42rem; }
+    .ol-legal-body h2 { margin-top: 1.25rem; }
+    .ol-legal-body h2:first-of-type { margin-top: 0.5rem; }
+    .ol-legal-body ul { padding-left: 1.25rem; }
+</style>

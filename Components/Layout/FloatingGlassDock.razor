@@ -1,88 +1,28 @@
-@implements IDisposable
-@inject IAuthService Auth
 @inject NavigationManager Navigation
 
-@if (_visible)
-{
-    <div class="ol-glass-dock-root" aria-label="Navegação principal">
-        <div class="ol-glass-dock-pill">
-            <div class="ol-glass-dock-cluster ol-glass-dock-cluster--left">
-                <NavLink class="ol-glass-dock-item"
-                         href="/grades"
-                         title="Notas"
-                         Match="NavLinkMatch.Prefix"
-                         ActiveClass="ol-glass-dock-item--active">
-                    <i class="bi bi-journal-text" aria-hidden="true"></i>
-                    <span class="ol-glass-dock-label">Notas</span>
-                </NavLink>
-                <NavLink class="ol-glass-dock-item"
-                         href="/horario"
-                         title="Horário"
-                         ActiveClass="ol-glass-dock-item--active">
-                    <i class="bi bi-calendar3" aria-hidden="true"></i>
-                    <span class="ol-glass-dock-label">Horário</span>
-                </NavLink>
-            </div>
-
-            <NavLink class="ol-glass-dock-home"
-                     href="/home"
-                     title="Início"
-                     Match="NavLinkMatch.All"
-                     ActiveClass="ol-glass-dock-home--active"
-                     aria-label="Início">
-                <i class="bi bi-house-fill" aria-hidden="true"></i>
-            </NavLink>
-
-            <div class="ol-glass-dock-cluster ol-glass-dock-cluster--right">
-                <NavLink class="ol-glass-dock-item"
-                         href="/historico-academico"
-                         title="Histórico académico"
-                         ActiveClass="ol-glass-dock-item--active">
-                    <i class="bi bi-clock-history" aria-hidden="true"></i>
-                    <span class="ol-glass-dock-label">Histórico</span>
-                </NavLink>
-                <NavLink class="ol-glass-dock-item"
-                         href="/curriculo"
-                         title="Grelha curricular"
-                         ActiveClass="ol-glass-dock-item--active">
-                    <i class="bi bi-layout-text-sidebar-reverse" aria-hidden="true"></i>
-                    <span class="ol-glass-dock-label">Grelha</span>
-                </NavLink>
-            </div>
-        </div>
+<div class="ol-glass-dock-root" aria-label="Navegação principal">
+    <div class="ol-glass-dock-pill ol-glass-dock-pill--compact">
+        <NavLink class="ol-glass-dock-item"
+                 href="/biblioteca"
+                 title="Biblioteca"
+                 ActiveClass="ol-glass-dock-item--active">
+            <i class="bi bi-bookshelf" aria-hidden="true"></i>
+            <span class="ol-glass-dock-label">Biblioteca</span>
+        </NavLink>
+        <NavLink class="ol-glass-dock-item"
+                 href="/leitor"
+                 title="Leitor"
+                 Match="NavLinkMatch.Prefix"
+                 ActiveClass="ol-glass-dock-item--active">
+            <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+            <span class="ol-glass-dock-label">Leitor</span>
+        </NavLink>
+        <NavLink class="ol-glass-dock-item"
+                 href="/definicoes"
+                 title="Definições"
+                 ActiveClass="ol-glass-dock-item--active">
+            <i class="bi bi-gear" aria-hidden="true"></i>
+            <span class="ol-glass-dock-label">Definições</span>
+        </NavLink>
     </div>
-}
-
-@code {
-    private bool _visible;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await Auth.InitializeAsync();
-        Auth.AuthenticationStateChanged += OnAuthChanged;
-        Navigation.LocationChanged += OnLocationChanged;
-        RecomputeVisible();
-    }
-
-    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
-    {
-        _ = InvokeAsync(StateHasChanged);
-    }
-
-    private void OnAuthChanged()
-    {
-        RecomputeVisible();
-        _ = InvokeAsync(StateHasChanged);
-    }
-
-    private void RecomputeVisible()
-    {
-        _visible = Auth.IsReady && Auth.IsAuthenticated;
-    }
-
-    public void Dispose()
-    {
-        Auth.AuthenticationStateChanged -= OnAuthChanged;
-        Navigation.LocationChanged -= OnLocationChanged;
-    }
-}
+</div>

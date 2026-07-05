@@ -1,0 +1,71 @@
+# Publicação Play Store — AAB assinado (manual / workflow_dispatch)
+name: OkutangaPDF Publish – Play Store AAB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish_aab:
+    name: Android AAB (Play Store)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DOTNET_NOLOGO: true
+      ANDROID_RID: android-arm64
+      ANDROID_SIGNING_KEYSTORE_DIR: Keystore/crmtic-upload
+      ANDROID_SIGNING_KEYSTORE_FILENAME: crmtic-upload.keystore
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/maui-ci-setup
+        with:
+          workload: maui-android
+          java-version: "17"
+          dotnet-version: "10.0.x"
+
+      - name: Unit tests
+        run: dotnet test "OkutangaPDF.Tests/OkutangaPDF.Tests.csproj" -c Release --verbosity minimal
+
+      - name: Restore Android
+        run: |
+          dotnet restore "okutangaPDF.csproj" \
+            /p:TargetFrameworks=net10.0-android \
+            /p:RuntimeIdentifiers="${ANDROID_RID}" \
+            /p:RuntimeIdentifier="${ANDROID_RID}"
+
+      - name: Publish signed AAB
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="${ANDROID_SIGNING_KEYSTORE_DIR}/${ANDROID_SIGNING_KEYSTORE_FILENAME}"
+          mkdir -p "${ANDROID_SIGNING_KEYSTORE_DIR}"
+          echo "${KEYSTORE_B64}" | base64 -d > "${KEYSTORE_PATH}"
+          dotnet publish "okutangaPDF.csproj" \
+            -c Release \
+            -f net10.0-android \
+            -r "${ANDROID_RID}" \
+            --no-restore \
+            /p:RuntimeIdentifiers="${ANDROID_RID}" \
+            /p:RuntimeIdentifier="${ANDROID_RID}" \
+            /p:PublishForPlayStore=true \
+            /p:AndroidPackageFormat=aab \
+            /p:AndroidKeyStore=true \
+            /p:AndroidSigningKeyStore="${KEYSTORE_PATH}" \
+            /p:AndroidSigningStorePass="${STORE_PASS}" \
+            /p:AndroidSigningKeyAlias="${KEY_ALIAS}" \
+            /p:AndroidSigningKeyPass="${KEY_PASS}"
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: okutangapdf-play-store-aab
+          path: bin/Release/net10.0-android/**/*.aab
+          if-no-files-found: error
+          retention-days: 30

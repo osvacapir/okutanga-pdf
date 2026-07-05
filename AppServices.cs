@@ -1,4 +1,4 @@
-namespace OlondongeApp;
+namespace OkutangaPDF;
 
 /// <summary>
 /// Fornece o <see cref="IServiceProvider"/> raiz após o build MAUI (ex.: inicialização em <see cref="Application.OnStart"/>).

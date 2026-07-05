@@ -1,7 +1,7 @@
 using ObjCRuntime;
 using UIKit;
 
-namespace OlondongeApp
+namespace OkutangaPDF
 {
     public class Program
     {

@@ -1,12 +1,7 @@
-using Microsoft.Maui.Controls.PlatformConfiguration;
-using Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;
+using Microsoft.Maui.Controls;
+using OkutangaPDF.Services;
 
-#if ANDROID
-using Android.OS;
-using Microsoft.AspNetCore.Components.WebView;
-#endif
-
-namespace OlondongeApp;
+namespace OkutangaPDF;
 
 public partial class MainPage : ContentPage
 {
@@ -14,15 +9,21 @@ public partial class MainPage : ContentPage
     {
         InitializeComponent();
 
-#if IOS
-        // iOS: respeitar notch/status bar/home indicator
-        this.On<Microsoft.Maui.Controls.PlatformConfiguration.iOS>().SetUseSafeArea(true);
+        blazorWebView.HandlerChanged += (_, _) =>
+        {
+#if WINDOWS
+            if (blazorWebView.Handler?.PlatformView is Microsoft.UI.Xaml.Controls.WebView2 wv2)
+            {
+                PdfLocalViewerHost.TryConfigure(wv2);
+            }
 #endif
+        };
 
-#if ANDROID
-        // Preferir o evento oficial: o WebView já está criado; HandlerChanged pode disparar cedo demais em alguns OEMs.
         blazorWebView.BlazorWebViewInitialized += (_, e) =>
         {
+            PdfLocalViewerHost.TryConfigure(e.WebView);
+
+#if ANDROID
             if (e.WebView is not Android.Webkit.WebView webView)
             {
                 return;
@@ -33,8 +34,8 @@ public partial class MainPage : ContentPage
                 webView.SetOnApplyWindowInsetsListener(new SafeAreaInsetsListener(webView));
                 webView.RequestApplyInsets();
             });
-        };
 #endif
+        };
     }
 
 #if ANDROID
@@ -68,27 +69,29 @@ public partial class MainPage : ContentPage
 
         public Android.Views.WindowInsets OnApplyWindowInsets(Android.Views.View v, Android.Views.WindowInsets insets)
         {
-            // API 30+: preferir barras de estado/navegação. Em falha (OEM / WebView), cair para SystemWindowInset*.
-            var top = insets.SystemWindowInsetTop;
-            var bottom = insets.SystemWindowInsetBottom;
-            var left = insets.SystemWindowInsetLeft;
-            var right = insets.SystemWindowInsetRight;
-#pragma warning disable CA1422
-            try
+            int top;
+            int bottom;
+            int left;
+            int right;
+
+            if (OperatingSystem.IsAndroidVersionAtLeast(30))
             {
-                if ((int)Build.VERSION.SdkInt >= (int)BuildVersionCodes.R)
-                {
-                    var status = insets.GetInsets(Android.Views.WindowInsets.Type.StatusBars());
-                    var nav = insets.GetInsets(Android.Views.WindowInsets.Type.NavigationBars());
-                    top = status.Top;
-                    bottom = nav.Bottom;
-                }
+                var status = insets.GetInsets(Android.Views.WindowInsets.Type.StatusBars());
+                var nav = insets.GetInsets(Android.Views.WindowInsets.Type.NavigationBars());
+                top = status.Top;
+                bottom = nav.Bottom;
+                left = status.Left;
+                right = status.Right;
             }
-            catch (System.Exception)
+            else
             {
-                // Manter SystemWindowInset* já atribuídos (GetInsets pode falhar em alguns OEM).
-            }
+#pragma warning disable CA1422 // SystemWindowInset* é o caminho suportado em API 24–29.
+                top = insets.SystemWindowInsetTop;
+                bottom = insets.SystemWindowInsetBottom;
+                left = insets.SystemWindowInsetLeft;
+                right = insets.SystemWindowInsetRight;
 #pragma warning restore CA1422
+            }
 
             if (top == _lastTop && bottom == _lastBottom && left == _lastLeft && right == _lastRight)
             {

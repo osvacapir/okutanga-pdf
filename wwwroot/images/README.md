@@ -13,7 +13,7 @@ Coloca o ficheiro **na pasta do projeto** `Resources/Images/` (não só em `wwwr
 | `logo_system.svg` | Vector: ícone/splash se não houver PNG; também copiado para o WebView. |
 | `logo_system.jpg` / `.jpeg` / `.webp` | Opcional: copiados para o mesmo nome em `wwwroot/images/`. |
 
-O alvo MSBuild **`CopyBrandingImagesToWwwRoot`** em `OlondongeApp.csproj` corre em **`PrepareForBuild`** e copia os ficheiros acima para `wwwroot/images/` antes dos static web assets.
+O alvo MSBuild **`CopyBrandingImagesToWwwRoot`** em `OkutangaPDF.csproj` corre em **`PrepareForBuild`** e copia os ficheiros acima para `wwwroot/images/` antes dos static web assets.
 
 A UI (Splash, Login, `index.html`) tenta carregar por esta ordem: PNG → WebP → JPG → SVG (`Branding/AppBranding.cs`).
 

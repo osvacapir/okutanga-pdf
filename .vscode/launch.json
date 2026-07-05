@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Okutanga PDF (Windows)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-okutanga-windows",
+      "program": "${workspaceFolder}/okutangaPdf/bin/Debug/net10.0-windows10.0.19041.0/win-x64/okutangaPDF.exe",
+      "cwd": "${workspaceFolder}/okutangaPdf",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    }
+  ]
+}

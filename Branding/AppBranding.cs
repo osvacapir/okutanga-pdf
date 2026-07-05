@@ -1,4 +1,4 @@
-namespace OlondongeApp.Branding;
+namespace OkutangaPDF.Branding;
 
 /// <summary>
 /// URLs relativos ao wwwroot para o logo do sistema (ficheiros copiados de <c>Resources/Images</c> no build).

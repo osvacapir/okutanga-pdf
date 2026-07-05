@@ -1,0 +1,10 @@
+<Project>
+  <!-- Configuração local opcional (não versionada): copie Directory.Build.local.props.example -->
+  <Import Project="Directory.Build.local.props" Condition="Exists('Directory.Build.local.props')" />
+
+  <!-- No Visual Studio (Windows), compilar só o alvo Windows evita exigir Android SDK / iOS. -->
+  <!-- Para depurar Android no VS, crie Directory.Build.local.props com OkutangaPdfWindowsOnly=false -->
+  <PropertyGroup Condition="'$(OkutangaPdfWindowsOnly)' == '' and '$(BuildingInsideVisualStudio)' == 'true' and $([MSBuild]::IsOSPlatform('windows'))">
+    <OkutangaPdfWindowsOnly>true</OkutangaPdfWindowsOnly>
+  </PropertyGroup>
+</Project>

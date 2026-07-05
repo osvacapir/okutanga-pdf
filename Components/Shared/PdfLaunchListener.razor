@@ -1,0 +1,27 @@
+@inject IIncomingPdfService IncomingPdf
+@inject NavigationManager Nav
+@implements IDisposable
+
+@code {
+    protected override void OnInitialized()
+    {
+        IncomingPdf.PendingAvailable += OnPending;
+    }
+
+    private void OnPending()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            var doc = await IncomingPdf.ConsumePendingAsync();
+            if (doc is not null)
+            {
+                Nav.NavigateTo($"/leitor/{doc.Id}", forceLoad: true);
+            }
+        });
+    }
+
+    public void Dispose()
+    {
+        IncomingPdf.PendingAvailable -= OnPending;
+    }
+}

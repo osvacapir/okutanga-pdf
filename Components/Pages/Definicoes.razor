@@ -1,0 +1,145 @@
+@page "/definicoes"
+@inject IJSRuntime JS
+@inject IPdfReaderSettingsService SettingsService
+@inject IKeepAwakeService KeepAwake
+
+<PageTitle>Definições — @AppPublisherInfo.AppName</PageTitle>
+
+<div class="ol-settings-page">
+<PageHeader Title="Definições" Subtitle="Aparência e leitura" />
+
+<div class="card ol-settings-card">
+    <div class="card-body">
+        <h3 class="h6">Tema</h3>
+        <p class="text-muted small">Alternar entre claro, escuro ou automático (sistema).</p>
+        <button type="button" class="btn btn-outline-primary" @onclick="ToggleThemeAsync">
+            <i class="bi @ThemeIcon()" aria-hidden="true"></i>
+            @ThemeLabel()
+        </button>
+    </div>
+</div>
+
+<div class="card ol-settings-card mt-3">
+    <div class="card-body">
+        <h3 class="h6">Leitura</h3>
+
+        <div class="mb-3">
+            <label class="form-label small">Modo de visualização</label>
+            <select class="form-select form-select-sm" @bind="_settings.ScrollMode" @bind:after="SaveSettings">
+                <option value="@PdfScrollMode.Continuous">Scroll contínuo</option>
+                <option value="@PdfScrollMode.SinglePage">Página a página</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small">Zoom inicial (@($"{_settings.DefaultZoom * 100:0}%"))</label>
+            <input type="range" class="form-range" min="0.5" max="3" step="0.25"
+                   @bind="_settings.DefaultZoom" @bind:after="SaveSettings" />
+        </div>
+
+        <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="rememberZoom"
+                   @bind="_settings.RememberZoom" @bind:after="SaveSettings" />
+            <label class="form-check-label small" for="rememberZoom">Recordar zoom por documento</label>
+        </div>
+
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="keepScreenOn"
+                   @bind="_settings.KeepScreenOn" @bind:after="SaveSettings" />
+            <label class="form-check-label small" for="keepScreenOn">Manter ecrã ligado durante leitura</label>
+        </div>
+    </div>
+</div>
+
+<div class="card ol-settings-card mt-3">
+    <div class="card-body">
+        <h3 class="h6">Legal</h3>
+        <p class="text-muted small mb-2">Privacidade e dados armazenados localmente no dispositivo.</p>
+        <a class="btn btn-sm btn-outline-secondary" href="/privacidade">Política de privacidade</a>
+    </div>
+</div>
+
+<div class="card ol-settings-card mt-3">
+    <div class="card-body">
+        <h3 class="h6">Acerca</h3>
+        <p class="text-muted small mb-2">
+            <strong>@AppPublisherInfo.AppName</strong> — leitor PDF offline (.NET MAUI + Blazor).
+            Scroll contínuo, pesquisa, marcadores e «Abrir com».
+            Versão @AppVersion.
+        </p>
+        <ul class="list-unstyled text-muted small mb-0 ol-about-meta">
+            <li><strong>Editor:</strong> @AppPublisherInfo.CompanyName</li>
+            <li><strong>Desenvolvedor:</strong> @AppPublisherInfo.DeveloperName</li>
+            <li><strong>Suporte:</strong> <a href="mailto:@AppPublisherInfo.SupportEmail">@AppPublisherInfo.SupportEmail</a></li>
+            <li><strong>Web:</strong> <a href="@AppPublisherInfo.CompanyUrl" target="_blank" rel="noopener">@AppPublisherInfo.CompanyUrl</a></li>
+        </ul>
+        <p class="text-muted small mt-2 mb-0">@AppPublisherInfo.Copyright</p>
+    </div>
+</div>
+</div>
+
+@code {
+    private string _themeMode = "auto";
+    private PdfReaderSettings _settings = new();
+    private string AppVersion => AppInfo.Current.VersionString;
+
+    protected override void OnInitialized()
+    {
+        _settings = SettingsService.Get();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _themeMode = await JS.InvokeAsync<string>("okutangaTheme.getMode");
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private void SaveSettings()
+    {
+        SettingsService.Save(_settings);
+        KeepAwake.SetActive(_settings.KeepScreenOn);
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        try
+        {
+            var result = await JS.InvokeAsync<ThemeResult>("okutangaTheme.toggle");
+            _themeMode = result.Mode ?? "auto";
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private string ThemeIcon() => _themeMode switch
+    {
+        "dark" => "bi-moon-stars-fill",
+        "light" => "bi-sun-fill",
+        _ => "bi-circle-half",
+    };
+
+    private string ThemeLabel() => _themeMode switch
+    {
+        "dark" => "Tema escuro",
+        "light" => "Tema claro",
+        _ => "Tema automático",
+    };
+
+    private sealed class ThemeResult
+    {
+        public string? Mode { get; set; }
+    }
+}
+
+<style>
+    .ol-settings-card {
+        border-radius: var(--ol-radius-md);
+        border-color: var(--ol-border);
+    }
+    .ol-about-meta li { margin-bottom: 0.25rem; }
+</style>

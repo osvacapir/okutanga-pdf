@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!-- Copie para Directory.Build.local.props para paths locais (nao versionado). -->
+
+  <!-- Android SDK instalado por scripts/install-android-sdk.ps1 -->
+  <PropertyGroup>
+    <AndroidSdkDirectory Condition="'$(AndroidSdkDirectory)' == '' and Exists('$(LOCALAPPDATA)\Android\Sdk\platform-tools\adb.exe')">$(LOCALAPPDATA)\Android\Sdk</AndroidSdkDirectory>
+    <JavaSdkDirectory Condition="'$(JavaSdkDirectory)' == '' and Exists('C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot\bin\java.exe')">C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot</JavaSdkDirectory>
+  </PropertyGroup>
+</Project>

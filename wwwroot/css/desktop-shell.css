@@ -1,0 +1,238 @@
+/**
+ * Shell desktop (Windows / Mac) — estilo aplicação nativa, não web nem mobile.
+ */
+
+.layout-desktop-app {
+    --win-chrome-height: 4.25rem;
+    --win-titlebar-bg: #f9f9f9;
+    --win-commandbar-bg: #f3f3f3;
+    --win-commandbar-border: #d4d4d4;
+    --win-nav-text: #1a1a1a;
+    --win-nav-hover: #e8e8e8;
+    --win-nav-active-bg: #ffffff;
+    --win-cmd-text: #1a1a1a;
+    --win-cmd-hover: #e5e5e5;
+    font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+html[data-theme="dark"] .layout-desktop-app {
+    --win-titlebar-bg: #1e1e1e;
+    --win-commandbar-bg: #2d2d2d;
+    --win-commandbar-border: #3d3d3d;
+    --win-nav-text: #f3f3f3;
+    --win-nav-hover: #3a3a3a;
+    --win-nav-active-bg: #383838;
+    --win-cmd-text: #f3f3f3;
+    --win-cmd-hover: #404040;
+}
+
+.layout-desktop-app .ol-glass-dock-root {
+    display: none !important;
+}
+
+.layout-desktop-app main > article.content {
+    padding: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.layout-desktop-app .content-wrapper {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Páginas informativas: coluna centrada */
+.layout-desktop-app .content-wrapper:has(.ol-biblioteca-list),
+.layout-desktop-app .content-wrapper:has(.ol-settings-page) {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 1.25rem 1.5rem 2rem;
+    width: 100%;
+}
+
+/* Leitor: ecrã inteiro */
+.layout-desktop-app .content-wrapper:has(.ol-pdf-reader--active),
+.layout-desktop-app .content-wrapper:has(.ol-pdf-loading),
+.layout-desktop-app .content-wrapper:has(.ol-pdf-reader-placeholder) {
+    max-width: none;
+    padding: 0;
+}
+
+.win-chrome {
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--win-commandbar-border);
+    background: var(--win-commandbar-bg);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.win-titlebar {
+    display: flex;
+    align-items: center;
+    min-height: 2rem;
+    padding: 0 0.75rem;
+    background: var(--win-titlebar-bg);
+    border-bottom: 1px solid var(--win-commandbar-border);
+}
+
+.win-titlebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.win-titlebar-brand img {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+}
+
+.win-titlebar-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--win-nav-text);
+    letter-spacing: 0.01em;
+}
+
+.win-commandbar {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 2.25rem;
+    padding: 0 0.35rem;
+}
+
+.win-nav {
+    display: flex;
+    align-items: stretch;
+    gap: 0.125rem;
+}
+
+.win-nav-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 0.85rem;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: var(--win-nav-text);
+    text-decoration: none;
+    border: none;
+    background: transparent;
+    border-bottom: 2px solid transparent;
+    transition: background 0.1s ease;
+}
+
+.win-nav-item:hover {
+    background: var(--win-nav-hover);
+    color: var(--win-nav-text);
+}
+
+.win-nav-item--active {
+    background: var(--win-nav-active-bg);
+    border-bottom-color: var(--ol-color-primary);
+    font-weight: 500;
+}
+
+.win-nav-item i {
+    font-size: 0.9rem;
+    opacity: 0.85;
+}
+
+.win-commandbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding-right: 0.25rem;
+}
+
+.win-cmd-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 1.75rem;
+    padding: 0 0.65rem;
+    font-size: 0.8125rem;
+    color: var(--win-cmd-text);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.win-cmd-btn:hover {
+    background: var(--win-cmd-hover);
+    border-color: var(--win-commandbar-border);
+}
+
+.win-cmd-btn--icon {
+    width: 1.75rem;
+    padding: 0;
+    justify-content: center;
+}
+
+.win-cmd-sep {
+    width: 1px;
+    height: 1.25rem;
+    background: var(--win-commandbar-border);
+    margin: 0 0.25rem;
+}
+
+/* Leitor PDF — chrome de aplicação */
+.layout-desktop-app .ol-pdf-reader--active {
+    gap: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    height: 100%;
+}
+
+.layout-desktop-app .ol-pdf-toolbar {
+    flex-shrink: 0;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid var(--ol-border);
+    background: var(--win-commandbar-bg);
+    padding: 0.35rem 0.75rem;
+    position: static;
+    box-shadow: none;
+}
+
+.layout-desktop-app .ol-pdf-viewport {
+    flex: 1 1 auto;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+    background: #525659;
+}
+
+html[data-theme="dark"] .layout-desktop-app .ol-pdf-viewport {
+    background: #1a1a1a;
+}
+
+.layout-desktop-app .ol-pdf-panel {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    margin: 0;
+}
+
+.layout-desktop-app .ol-pdf-loading {
+    flex: 1;
+    min-height: 12rem;
+}
+
+.layout-desktop-app .ol-pdf-reader-placeholder {
+    flex: 1;
+    min-height: 12rem;
+    border: none;
+    border-radius: 0;
+}

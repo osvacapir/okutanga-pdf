@@ -1,0 +1,1288 @@
+@page "/leitor"
+@page "/leitor/{DocumentId:int}"
+@implements IDisposable
+@using Microsoft.AspNetCore.Components
+@using OkutangaPDF.Services
+@using OkutangaPDF.Models
+@inject IPdfReaderSession Session
+@inject IPdfFileService FileService
+@inject IPdfReaderSettingsService SettingsService
+@inject IPdfBookmarkStore BookmarkStore
+@inject IKeepAwakeService KeepAwake
+@inject IAppNotificationService Notifications
+@inject IAppShellService Shell
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>@PageTitleText</PageTitle>
+
+@if (_state == LoadState.Loading)
+{
+    <div class="ol-pdf-loading" role="status" aria-live="polite">
+        <div class="spinner-border text-primary" role="presentation"></div>
+        <span>@_statusMessage</span>
+    </div>
+}
+else if (_state == LoadState.Error)
+{
+    <PageHeader Title="Leitor PDF" Subtitle="Erro ao carregar" />
+    <div class="alert alert-danger" role="alert">@_errorMessage</div>
+    <button type="button" class="btn btn-primary me-2" @onclick="OpenPickerAsync">Tentar outro PDF</button>
+    <a class="btn btn-outline-secondary" href="/biblioteca">Biblioteca</a>
+}
+else if (_state == LoadState.Empty)
+{
+    <PageHeader Title="Leitor PDF" Subtitle="Nenhum documento aberto" />
+    <div class="ol-pdf-reader-placeholder" role="region" aria-label="Área de leitura">
+        <div class="ol-pdf-reader-empty">
+            <i class="bi bi-file-earmark-pdf ol-pdf-reader-icon" aria-hidden="true"></i>
+            <p class="mb-2">Seleccione um PDF para começar</p>
+            <p class="text-muted small mb-3">
+                Ficheiros até @FileService.FormatFileSize(FileService.MaxFileSizeBytes). Também pode «Abrir com» @AppPublisherInfo.AppName noutras apps.
+            </p>
+            <button type="button" class="btn btn-primary" @onclick="OpenPickerAsync">Seleccionar PDF…</button>
+        </div>
+    </div>
+}
+else
+{
+    <div id="@ReaderRootId" @ref="_readerRootRef"
+         class="ol-pdf-reader ol-pdf-reader--active @GetReaderCssClass()">
+
+        <div class="ol-pdf-chrome ol-pdf-chrome--desktop">
+            <div class="ol-pdf-toolbar" role="toolbar" aria-label="Controlos do leitor">
+                <span class="ol-pdf-toolbar-title" title="@Session.Current!.FileName">@Session.Current!.FileName</span>
+
+                <div class="ol-pdf-toolbar-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Página anterior"
+                            disabled="@(_currentPage <= 1 || _busy)" @onclick="PreviousPageAsync">
+                        <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                    </button>
+                    <form class="ol-pdf-goto-form" @onsubmit="GoToPageAsync" @onsubmit:preventDefault="true">
+                        <input type="number" class="form-control form-control-sm ol-pdf-goto-input"
+                               min="1" max="@_pageCount" @bind="_gotoPage" aria-label="Ir para página" />
+                        <span class="ol-pdf-page-indicator">/ @_pageCount</span>
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" disabled="@_busy">Ir</button>
+                    </form>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Página seguinte"
+                            disabled="@(_currentPage >= _pageCount || _busy)" @onclick="NextPageAsync">
+                        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <div class="ol-pdf-toolbar-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ZoomOutAsync" disabled="@(_scale <= MinScale || _busy)">
+                        <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                    </button>
+                    <span class="ol-pdf-page-indicator">@($"{_scale * 100:0}%")</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ZoomInAsync" disabled="@(_scale >= MaxScale || _busy)">
+                        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <div class="ol-pdf-toolbar-group ol-pdf-toolbar-actions">
+                    <button type="button" class="btn btn-sm @(_scrollMode == PdfScrollMode.Continuous ? "btn-primary" : "btn-outline-secondary")"
+                            title="Scroll contínuo" @onclick="() => SetScrollModeAsync(PdfScrollMode.Continuous)">
+                        <i class="bi bi-layout-text-window-reverse" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm @(_scrollMode == PdfScrollMode.SinglePage ? "btn-primary" : "btn-outline-secondary")"
+                            title="Página a página" @onclick="() => SetScrollModeAsync(PdfScrollMode.SinglePage)">
+                        <i class="bi bi-file-earmark" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm @(_showSearch ? "btn-primary" : "btn-outline-secondary")"
+                            title="Pesquisar (Ctrl+F)" @onclick="ToggleFindAsync">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm @(_showBookmarks ? "btn-primary" : "btn-outline-secondary")"
+                            title="Marcadores" @onclick="ToggleBookmarks">
+                        <i class="bi bi-bookmark" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm @(_showThumbs ? "btn-primary" : "btn-outline-secondary")"
+                            title="Miniaturas" @onclick="ToggleThumbsAsync">
+                        <i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm @(_isImmersive ? "btn-primary" : "btn-outline-secondary")"
+                            title="Ecrã inteiro" @onclick="ToggleImmersiveAsync">
+                        <i class="bi @(_isImmersive ? "bi-fullscreen-exit" : "bi-fullscreen")" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Partilhar" @onclick="ShareAsync">
+                        <i class="bi bi-share" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Abrir outro" @onclick="OpenPickerAsync" disabled="@_busy">
+                        <i class="bi bi-folder2-open" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="ol-pdf-chrome ol-pdf-chrome--compact">
+            <div class="ol-pdf-mobile-nav" role="navigation" aria-label="Navegação por páginas" data-no-swipe>
+                <button type="button" class="ol-pdf-mobile-nav-btn ol-pdf-mobile-nav-btn--menu" title="Menu" aria-label="Menu do leitor"
+                        aria-expanded="@_showMobileMenu" @onclick="ToggleMobileMenuAsync">
+                    <i class="bi bi-list" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="ol-pdf-mobile-nav-btn" title="Página anterior" aria-label="Página anterior"
+                        disabled="@(_currentPage <= 1 || _busy)" @onclick="PreviousPageAsync">
+                    <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="ol-pdf-mobile-page-btn" title="Ir para página" aria-label="Ir para página"
+                        @onclick="ToggleMobileGotoAsync">
+                    @_currentPage <span class="ol-pdf-mobile-page-sep">/</span> @_pageCount
+                </button>
+                <button type="button" class="ol-pdf-mobile-nav-btn" title="Página seguinte" aria-label="Página seguinte"
+                        disabled="@(_currentPage >= _pageCount || _busy)" @onclick="NextPageAsync">
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            @if (_isImmersive)
+            {
+                <button type="button" class="ol-pdf-immersive-exit" title="Sair do ecrã inteiro" aria-label="Sair do ecrã inteiro"
+                        @onclick="ToggleImmersiveAsync" data-no-swipe>
+                    <i class="bi bi-fullscreen-exit" aria-hidden="true"></i>
+                </button>
+            }
+
+            @if (_showMobileMenu)
+            {
+                <div class="ol-pdf-mobile-backdrop" @onclick="CloseMobileMenuAsync" aria-hidden="true"></div>
+                <div class="ol-pdf-mobile-sheet" role="dialog" aria-label="Menu do leitor" data-no-swipe>
+                    <div class="ol-pdf-mobile-sheet-handle" aria-hidden="true"></div>
+                    <p class="ol-pdf-mobile-sheet-title" title="@Session.Current!.FileName">@Session.Current!.FileName</p>
+                    <div class="ol-pdf-mobile-sheet-grid">
+                        <button type="button" class="ol-pdf-mobile-sheet-item" @onclick="() => MobileMenuActionAsync(MobileMenuAction.ZoomOut)">
+                            <i class="bi bi-dash-lg" aria-hidden="true"></i>
+                            <span>Diminuir</span>
+                        </button>
+                        <button type="button" class="ol-pdf-mobile-sheet-item" @onclick="() => MobileMenuActionAsync(MobileMenuAction.ZoomIn)">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                            <span>Aumentar (@($"{_scale * 100:0}%"))</span>
+                        </button>
+                        <button type="button" class="ol-pdf-mobile-sheet-item" @onclick="() => MobileMenuActionAsync(MobileMenuAction.ScrollContinuous)">
+                            <i class="bi bi-layout-text-window-reverse" aria-hidden="true"></i>
+                            <span>Scroll contínuo</span>
+                        </button>
+                        <button type="button" class="ol-pdf-mobile-sheet-item" @onclick="() => MobileMenuActionAsync(MobileMenuAction.ScrollSingle)">
+                            <i class="bi bi-file-earmark" aria-hidden="true"></i>
+                            <span>Página a página</span>
+                        </button>
+                        <button type="button" class="ol-pdf-mobile-sheet-item" @onclick="() => MobileMenuActionAsync(MobileMenuAction.Search)">
+                            <i class="bi bi-search" aria-hidden="true"></i>
+                            <span>Pesquisar</span>
+                        </button>
+                        <button type="button" class="ol-pdf-mobile-sheet-item" @onclick="() => MobileMenuActionAsync(MobileMenuAction.Bookmarks)">
+                            <i class="bi bi-bookmark" aria-hidden="true"></i>
+                            <span>Marcadores</span>
+                        </button>
+                        <button type="button" class="ol-pdf-mobile-sheet-item" @onclick="() => MobileMenuActionAsync(MobileMenuAction.Thumbs)">
+                            <i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>
+                            <span>Miniaturas</span>
+                        </button>
+                        <button type="button" class="ol-pdf-mobile-sheet-item" @onclick="() => MobileMenuActionAsync(MobileMenuAction.Fullscreen)">
+                            <i class="bi bi-fullscreen" aria-hidden="true"></i>
+                            <span>Ecrã inteiro</span>
+                        </button>
+                        <button type="button" class="ol-pdf-mobile-sheet-item" @onclick="() => MobileMenuActionAsync(MobileMenuAction.Share)">
+                            <i class="bi bi-share" aria-hidden="true"></i>
+                            <span>Partilhar</span>
+                        </button>
+                        <button type="button" class="ol-pdf-mobile-sheet-item" @onclick="() => MobileMenuActionAsync(MobileMenuAction.Open)">
+                            <i class="bi bi-folder2-open" aria-hidden="true"></i>
+                            <span>Abrir outro</span>
+                        </button>
+                    </div>
+                </div>
+            }
+
+            @if (_showMobileGoto)
+            {
+                <div class="ol-pdf-mobile-backdrop" @onclick="CloseMobileGotoAsync" aria-hidden="true"></div>
+                <div class="ol-pdf-mobile-sheet ol-pdf-mobile-sheet--goto" role="dialog" aria-label="Ir para página" data-no-swipe>
+                    <form class="ol-pdf-mobile-goto-form" @onsubmit="SubmitMobileGotoAsync" @onsubmit:preventDefault="true">
+                        <label class="small mb-1">Ir para página</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <input type="number" class="form-control" min="1" max="@_pageCount" @bind="_gotoPage" aria-label="Número da página" />
+                            <button type="submit" class="btn btn-primary" disabled="@_busy">Ir</button>
+                        </div>
+                    </form>
+                </div>
+            }
+        </div>
+
+        @if (_isImmersive)
+        {
+            <div class="ol-pdf-chrome ol-pdf-chrome--desktop ol-pdf-immersive-bar-wrap">
+                <div class="ol-pdf-immersive-bar" role="toolbar" aria-label="Controlos em ecrã inteiro" data-no-swipe>
+                    <button type="button" class="btn btn-sm btn-outline-light" @onclick="ToggleImmersiveAsync">
+                        <i class="bi bi-fullscreen-exit" aria-hidden="true"></i> Sair
+                    </button>
+                    <div class="ol-pdf-immersive-nav">
+                        <button type="button" class="btn btn-sm btn-outline-light" disabled="@(_currentPage <= 1 || _busy)" @onclick="PreviousPageAsync">
+                            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                        </button>
+                        <span class="ol-pdf-immersive-page">@_currentPage / @_pageCount</span>
+                        <button type="button" class="btn btn-sm btn-outline-light" disabled="@(_currentPage >= _pageCount || _busy)" @onclick="NextPageAsync">
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-light" @onclick="ToggleFindAsync">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        }
+
+        @if (_showSearch)
+        {
+            <div class="ol-pdf-findbar ol-pdf-findbar--responsive" role="search" aria-label="Pesquisar no documento" data-no-swipe>
+                <form class="ol-pdf-findbar-form" @onsubmit="FindNextAsync" @onsubmit:preventDefault="true">
+                    <i class="bi bi-search ol-pdf-findbar-icon" aria-hidden="true"></i>
+                    <input type="search" class="ol-pdf-findbar-input" placeholder="Pesquisar…"
+                           @bind="_searchQuery" @bind:event="oninput" @bind:after="OnSearchQueryChanged"
+                           @onkeydown="FindKeyDownAsync" @ref="_findInputRef"
+                           aria-label="Termo de pesquisa" autocomplete="off" spellcheck="false" />
+                    <span class="ol-pdf-findbar-status" aria-live="polite">
+                        @if (_searching)
+                        {
+                            <span class="ol-pdf-findbar-spinner spinner-border spinner-border-sm" role="presentation"></span>
+                        }
+                        else if (_searched && _searchResults.Count == 0)
+                        {
+                            <span class="ol-pdf-findbar-empty">Sem resultados</span>
+                        }
+                        else if (_searchResults.Count > 0)
+                        {
+                            <span>@(_currentMatchIndex + 1) / @_searchResults.Count</span>
+                        }
+                    </span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ol-pdf-findbar-btn"
+                            title="Anterior (Shift+Enter)" aria-label="Ocorrência anterior"
+                            disabled="@(_searchResults.Count == 0 || _busy || _searching)" @onclick="FindPreviousAsync">
+                        <i class="bi bi-chevron-up" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ol-pdf-findbar-btn"
+                            title="Seguinte (Enter)" aria-label="Ocorrência seguinte"
+                            disabled="@(_searchResults.Count == 0 || _busy || _searching)" @onclick="FindNextAsync">
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ol-pdf-findbar-btn"
+                            title="Fechar (Esc)" aria-label="Fechar pesquisa" @onclick="CloseFindAsync">
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    </button>
+                </form>
+                @if (_searchResults.Count > 0 && _currentMatchIndex >= 0 && _currentMatchIndex < _searchResults.Count)
+                {
+                    <p class="ol-pdf-findbar-snippet text-muted small mb-0">
+                        Pág. @_searchResults[_currentMatchIndex].PageNumber — @_searchResults[_currentMatchIndex].Snippet
+                    </p>
+                }
+            </div>
+        }
+
+        @if (_showBookmarks)
+        {
+            <div class="ol-pdf-panel ol-pdf-panel--responsive" data-no-swipe>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <strong class="small">Marcadores</strong>
+                    <div class="d-flex gap-1">
+                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddBookmarkAsync">
+                            <i class="bi bi-bookmark-plus" aria-hidden="true"></i> Pág. @_currentPage
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ol-pdf-panel-close" aria-label="Fechar" @onclick="() => _showBookmarks = false">
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+                @if (_bookmarks.Count == 0)
+                {
+                    <p class="text-muted small mb-0">Sem marcadores neste documento.</p>
+                }
+                else
+                {
+                    <ul class="ol-pdf-bookmark-list">
+                        @foreach (var bm in _bookmarks)
+                        {
+                            <li class="ol-pdf-bookmark-item">
+                                <button type="button" class="ol-pdf-bookmark-go" @onclick="() => GoToPageNumberAsync(bm.PageNumber)">
+                                    Pág. @bm.PageNumber @(bm.Label is not null ? $"— {bm.Label}" : "")
+                                </button>
+                                <button type="button" class="btn btn-sm btn-link text-danger" aria-label="Remover marcador"
+                                        @onclick="() => RemoveBookmarkAsync(bm.Id)">
+                                    <i class="bi bi-trash" aria-hidden="true"></i>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+
+        @if (_showThumbs && _pageCount > 0)
+        {
+            <div class="ol-pdf-thumbs ol-pdf-thumbs--responsive" aria-label="Miniaturas" data-no-swipe>
+                @for (var p = 1; p <= Math.Min(_pageCount, 20); p++)
+                {
+                    var page = p;
+                    <button type="button" class="ol-pdf-thumb @(_currentPage == page ? "ol-pdf-thumb--active" : "")"
+                            title="@($"Página {page}")" @onclick="() => GoToPageNumberAsync(page)">
+                        <canvas id="@ThumbCanvasId(page)" width="60" height="80"></canvas>
+                        <span>@(page)</span>
+                    </button>
+                }
+                @if (_pageCount > 20)
+                {
+                    <span class="ol-pdf-thumbs-more text-muted small">+@(_pageCount - 20) págs.</span>
+                }
+            </div>
+        }
+
+        <div id="@ViewportId" class="ol-pdf-viewport">
+            @if (_scrollMode == PdfScrollMode.Continuous)
+            {
+                <div id="@ContainerId" class="ol-pdf-pages-container"></div>
+            }
+            else
+            {
+                <div class="ol-pdf-canvas-wrap">
+                    <canvas id="@SingleCanvasId" aria-label="@($"Página {_currentPage} de {_pageCount}")"></canvas>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private const string ViewportId = "ok-pdf-viewport";
+    private const string ContainerId = "ok-pdf-pages";
+    private const string SingleCanvasId = "ok-pdf-canvas";
+    private const string ReaderRootId = "ok-pdf-reader-root";
+    private const double MinScale = 0.5;
+    private const double MaxScale = 3.0;
+    private const double ScaleStep = 0.25;
+
+    [Parameter] public int? DocumentId { get; set; }
+    [SupplyParameterFromQuery(Name = "pick")] public bool AutoPick { get; set; }
+
+    private enum LoadState { Loading, Empty, Ready, Error }
+
+    private LoadState _state = LoadState.Loading;
+    private string _statusMessage = "A preparar leitor…";
+    private string? _errorMessage;
+    private int _currentPage = 1;
+    private int _gotoPage = 1;
+    private int _pageCount;
+    private double _scale = 1.0;
+    private bool _busy;
+    private bool _jsReady;
+    private bool _autoPickHandled;
+    private PdfScrollMode _scrollMode = PdfScrollMode.Continuous;
+    private bool _showSearch;
+    private bool _showBookmarks;
+    private bool _showThumbs;
+    private string _searchQuery = "";
+    private bool _searched;
+    private bool _searching;
+    private int _currentMatchIndex = -1;
+    private int _searchGeneration;
+    private CancellationTokenSource? _searchDebounceCts;
+    private ElementReference _findInputRef;
+    private List<PdfSearchMatch> _searchResults = [];
+    private List<PdfBookmark> _bookmarks = [];
+    private DotNetObjectReference<Leitor>? _dotNetRef;
+    private int? _loadedDocumentId;
+    private int _loadGeneration;
+    private bool _viewApplyPending;
+    private bool _isImmersive;
+    private bool _showMobileMenu;
+    private bool _showMobileGoto;
+    private ElementReference _readerRootRef;
+
+    private enum MobileMenuAction
+    {
+        ZoomOut,
+        ZoomIn,
+        ScrollContinuous,
+        ScrollSingle,
+        Search,
+        Bookmarks,
+        Thumbs,
+        Fullscreen,
+        Share,
+        Open,
+    }
+
+    private string PageTitleText => Session.Current?.FileName is { Length: > 0 } name
+        ? $"{name} — {AppPublisherInfo.AppName}"
+        : $"Leitor — {AppPublisherInfo.AppName}";
+
+    private static string ThumbCanvasId(int page) => $"ok-pdf-thumb-{page}";
+
+    private string GetReaderCssClass()
+    {
+        var css = UsesCompactChrome ? "ol-pdf-reader--compact" : "ol-pdf-reader--desktop";
+        if (_isImmersive) css += " ol-pdf-reader--immersive";
+        if (_isNarrowViewport) css += " ol-pdf-reader--narrow";
+        return css;
+    }
+
+    protected override void OnInitialized()
+    {
+        SettingsService.SettingsChanged += OnSettingsChanged;
+        _scrollMode = SettingsService.Get().ScrollMode;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ApplyKeepAwake();
+        await EnsureJsReadyAsync();
+
+        if (AutoPick && !_autoPickHandled)
+        {
+            _autoPickHandled = true;
+            await OpenPickerAsync();
+            return;
+        }
+
+        if (DocumentId is int id)
+        {
+            if (_loadedDocumentId == id && _state == LoadState.Ready && Session.Current?.Id == id)
+            {
+                return;
+            }
+
+            await OpenRecentAsync(id);
+            return;
+        }
+
+        if (Session.Current is not null && Session.Current.FileExists)
+        {
+            await LoadCurrentDocumentAsync();
+            return;
+        }
+
+        _state = LoadState.Empty;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_viewApplyPending)
+        {
+            _viewApplyPending = false;
+            await ApplyViewModeAsync();
+        }
+
+        if (_state == LoadState.Ready && _showThumbs && _thumbsNeedRender)
+        {
+            _thumbsNeedRender = false;
+            await RenderVisibleThumbsAsync();
+        }
+
+        if (_state == LoadState.Ready && !_compactLayoutSynced)
+        {
+            _compactLayoutSynced = true;
+            await SyncReaderLayoutAsync();
+            await JS.InvokeVoidAsync("okutangaPdfReader.watchReaderViewport", ReaderRootId, _dotNetRef);
+        }
+    }
+
+    private bool _compactLayoutSynced;
+    private bool _isNarrowViewport;
+
+    private bool UsesCompactChrome => Shell.UseCompactReaderUi || _isNarrowViewport;
+
+    private bool _thumbsNeedRender;
+
+    private void OnSettingsChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            var s = SettingsService.Get();
+            _scrollMode = s.ScrollMode;
+            ApplyKeepAwake();
+            if (_state == LoadState.Ready)
+            {
+                await ApplyViewModeAsync();
+            }
+            StateHasChanged();
+        });
+    }
+
+    private void ApplyKeepAwake()
+    {
+        var settings = SettingsService.Get();
+        KeepAwake.SetActive(settings.KeepScreenOn && _state == LoadState.Ready);
+    }
+
+    private async Task EnsureJsReadyAsync()
+    {
+        if (_jsReady) return;
+        try
+        {
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("okutangaPdfReader.init", _dotNetRef, ViewportId, ContainerId, SingleCanvasId);
+            _jsReady = true;
+        }
+        catch (Exception ex)
+        {
+            _state = LoadState.Error;
+            _errorMessage = "Não foi possível inicializar o motor PDF: " + ex.Message;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnVisiblePageChanged(int page)
+    {
+        if (page < 1 || _pageCount < 1 || page > _pageCount || page == _currentPage) return;
+        _currentPage = page;
+        _gotoPage = page;
+        try
+        {
+            await Session.SaveReadingProgressAsync(_currentPage, _pageCount, _scale);
+        }
+        catch
+        {
+            // progresso opcional
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnReaderViewportChanged(bool isNarrow)
+    {
+        _isNarrowViewport = isNarrow;
+        await SyncReaderLayoutAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnFindShortcut() => OpenFindAsync();
+
+    [JSInvokable]
+    public async Task OnFullscreenEnded()
+    {
+        if (!_isImmersive) return;
+        _isImmersive = false;
+        await SyncReaderLayoutAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnPinchZoom(double newScale)
+    {
+        if (_state != LoadState.Ready || _busy) return;
+        _scale = Math.Clamp(newScale, MinScale, MaxScale);
+        await RerenderAsync();
+    }
+
+    private async Task OpenPickerAsync()
+    {
+        _state = LoadState.Loading;
+        _statusMessage = "A seleccionar ficheiro…";
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var doc = await Session.OpenPickerAsync();
+            if (doc is null)
+            {
+                _state = Session.Current is not null ? LoadState.Ready : LoadState.Empty;
+                return;
+            }
+
+            await LoadCurrentDocumentAsync();
+            if (_state == LoadState.Ready)
+            {
+                Nav.NavigateTo($"/leitor/{doc.Id}", replace: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            _state = LoadState.Error;
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private async Task OpenRecentAsync(int id)
+    {
+        _state = LoadState.Loading;
+        _statusMessage = "A abrir documento…";
+        StateHasChanged();
+
+        try
+        {
+            var doc = await Session.OpenRecentAsync(id);
+            if (doc is null)
+            {
+                _state = LoadState.Error;
+                _errorMessage = "Documento não encontrado ou removido do dispositivo.";
+                return;
+            }
+
+            await LoadCurrentDocumentAsync();
+        }
+        catch (Exception ex)
+        {
+            _state = LoadState.Error;
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private async Task LoadCurrentDocumentAsync()
+    {
+        var doc = Session.Current;
+        if (doc is null || !doc.FileExists)
+        {
+            _state = LoadState.Empty;
+            return;
+        }
+
+        var generation = ++_loadGeneration;
+
+        _state = LoadState.Loading;
+        _statusMessage = $"A abrir {doc.FileName}…";
+        _compactLayoutSynced = false;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var settings = SettingsService.Get();
+            _scrollMode = settings.ScrollMode;
+
+#if WINDOWS
+            try
+            {
+                await PdfLocalViewerHost.EnsureReadyAsync();
+            }
+            catch (TimeoutException)
+            {
+                // Fallback: stream via Blazor (mais lento).
+            }
+#endif
+
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
+
+            PdfLoadResult result;
+            var viewerUrl = PdfLocalViewerHost.TryGetDocumentUrl(doc.LocalPath);
+            if (viewerUrl is not null)
+            {
+                result = await JS.InvokeAsync<PdfLoadResult>("okutangaPdfReader.loadFromUrl", viewerUrl);
+            }
+            else
+            {
+                var stream = FileService.OpenRead(doc);
+                if (stream is null)
+                {
+                    _state = LoadState.Error;
+                    _errorMessage = "Ficheiro não encontrado no dispositivo.";
+                    return;
+                }
+
+                await using (stream)
+                {
+                    using var streamRef = new DotNetStreamReference(stream: stream);
+                    result = await JS.InvokeAsync<PdfLoadResult>("okutangaPdfReader.loadFromStream", streamRef);
+                }
+            }
+
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
+
+            _pageCount = result.PageCount;
+            _currentPage = _pageCount > 0 ? Math.Clamp(doc.LastPage, 1, _pageCount) : 1;
+            _gotoPage = _currentPage;
+            _scale = settings.RememberZoom && doc.LastZoom > 0 ? doc.LastZoom : settings.DefaultZoom;
+            _scale = Math.Clamp(_scale, MinScale, MaxScale);
+            _loadedDocumentId = doc.Id;
+
+            _state = LoadState.Ready;
+            ApplyKeepAwake();
+            _viewApplyPending = true;
+            await SyncReaderLayoutAsync();
+            await InvokeAsync(StateHasChanged);
+
+            _ = LoadBookmarksInBackgroundAsync();
+        }
+        catch (Exception ex)
+        {
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
+
+            _state = LoadState.Error;
+            _errorMessage = ex.Message;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task LoadBookmarksInBackgroundAsync()
+    {
+        if (Session.Current is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await BookmarkStore.EnsureReadyAsync();
+            _bookmarks = (await BookmarkStore.GetForDocumentAsync(Session.Current.Id)).ToList();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            // Marcadores são opcionais; não bloquear a leitura.
+        }
+    }
+
+    private async Task ApplyViewModeAsync()
+    {
+        if (!_jsReady || _state != LoadState.Ready || _pageCount < 1) return;
+
+        _busy = true;
+        try
+        {
+            await JS.InvokeVoidAsync("okutangaPdfReader.setMode", _scrollMode == PdfScrollMode.SinglePage ? "single" : "continuous");
+            await JS.InvokeVoidAsync("okutangaPdfReader.setScale", _scale);
+
+            if (_scrollMode == PdfScrollMode.Continuous)
+            {
+                await JS.InvokeVoidAsync("okutangaPdfReader.buildContinuousLayout", ContainerId, _pageCount, _currentPage);
+            }
+            else
+            {
+                await JS.InvokeAsync<object?>("okutangaPdfReader.renderSinglePage", _currentPage, SingleCanvasId);
+            }
+
+            await Session.SaveReadingProgressAsync(_currentPage, _pageCount, _scale);
+        }
+        catch (Exception ex)
+        {
+            NotifyError("Não foi possível actualizar a vista.", ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RerenderAsync()
+    {
+        if (_state != LoadState.Ready || _pageCount < 1) return;
+        _busy = true;
+        StateHasChanged();
+        try
+        {
+            await JS.InvokeVoidAsync("okutangaPdfReader.setScale", _scale);
+            if (_scrollMode == PdfScrollMode.Continuous)
+            {
+                await JS.InvokeVoidAsync("okutangaPdfReader.rerenderContinuous", ContainerId, _currentPage);
+                await JS.InvokeVoidAsync("okutangaPdfReader.scrollToPage", ContainerId, _currentPage);
+            }
+            else
+            {
+                await JS.InvokeAsync<object?>("okutangaPdfReader.renderSinglePage", _currentPage, SingleCanvasId);
+            }
+
+            await Session.SaveReadingProgressAsync(_currentPage, _pageCount, _scale);
+            if (_showThumbs) _thumbsNeedRender = true;
+        }
+        catch (Exception ex)
+        {
+            NotifyError("Não foi possível actualizar o zoom.", ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SetScrollModeAsync(PdfScrollMode mode)
+    {
+        if (_busy || _state != LoadState.Ready) return;
+        _scrollMode = mode;
+        var s = SettingsService.Get();
+        s.ScrollMode = mode;
+        SettingsService.Save(s);
+        await ApplyViewModeAsync();
+    }
+
+    private async Task PreviousPageAsync() => await GoToPageNumberAsync(_currentPage - 1);
+    private async Task NextPageAsync() => await GoToPageNumberAsync(_currentPage + 1);
+
+    private async Task GoToPageAsync() => await GoToPageNumberAsync(_gotoPage);
+
+    private async Task GoToPageNumberAsync(int page)
+    {
+        if (_pageCount < 1 || _state != LoadState.Ready) return;
+
+        page = Math.Clamp(page, 1, _pageCount);
+        if (page == _currentPage && _scrollMode == PdfScrollMode.SinglePage) return;
+
+        _currentPage = page;
+        _gotoPage = page;
+        _busy = true;
+        StateHasChanged();
+
+        try
+        {
+            if (_scrollMode == PdfScrollMode.Continuous)
+            {
+                await JS.InvokeVoidAsync("okutangaPdfReader.scrollToPage", ContainerId, _currentPage);
+            }
+            else
+            {
+                await JS.InvokeAsync<object?>("okutangaPdfReader.renderSinglePage", _currentPage, SingleCanvasId);
+            }
+
+            await Session.SaveReadingProgressAsync(_currentPage, _pageCount, _scale);
+        }
+        catch (Exception ex)
+        {
+            NotifyError("Não foi possível ir para a página.", ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ZoomInAsync()
+    {
+        _scale = Math.Min(MaxScale, _scale + ScaleStep);
+        await RerenderAsync();
+    }
+
+    private async Task ZoomOutAsync()
+    {
+        _scale = Math.Max(MinScale, _scale - ScaleStep);
+        await RerenderAsync();
+    }
+
+    private async Task SyncReaderLayoutAsync()
+    {
+        if (_state != LoadState.Ready) return;
+
+        var mode = UsesCompactChrome
+            ? (_isImmersive ? "immersive" : "reading")
+            : (_isImmersive ? "immersive" : "normal");
+
+        try
+        {
+            await JS.InvokeVoidAsync("okutangaPdfReader.setReaderLayout", mode);
+        }
+        catch
+        {
+            // layout opcional
+        }
+    }
+
+    private async Task ToggleImmersiveAsync()
+    {
+        _isImmersive = !_isImmersive;
+        _showMobileMenu = false;
+        _showMobileGoto = false;
+        await SyncReaderLayoutAsync();
+
+        try
+        {
+            if (_isImmersive)
+            {
+                await JS.InvokeAsync<bool>("okutangaPdfReader.enterFullscreen", ReaderRootId);
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("okutangaPdfReader.exitFullscreen");
+            }
+        }
+        catch
+        {
+            // Fullscreen API pode não estar disponível no WebView
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task ToggleMobileMenuAsync()
+    {
+        _showMobileMenu = !_showMobileMenu;
+        if (_showMobileMenu) _showMobileGoto = false;
+        await Task.CompletedTask;
+    }
+
+    private Task CloseMobileMenuAsync()
+    {
+        _showMobileMenu = false;
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleMobileGotoAsync()
+    {
+        _showMobileGoto = !_showMobileGoto;
+        if (_showMobileGoto)
+        {
+            _showMobileMenu = false;
+            _gotoPage = _currentPage;
+        }
+        return Task.CompletedTask;
+    }
+
+    private Task CloseMobileGotoAsync()
+    {
+        _showMobileGoto = false;
+        return Task.CompletedTask;
+    }
+
+    private async Task SubmitMobileGotoAsync()
+    {
+        _showMobileGoto = false;
+        await GoToPageNumberAsync(_gotoPage);
+    }
+
+    private async Task MobileMenuActionAsync(MobileMenuAction action)
+    {
+        _showMobileMenu = false;
+        StateHasChanged();
+
+        switch (action)
+        {
+            case MobileMenuAction.ZoomOut:
+                await ZoomOutAsync();
+                break;
+            case MobileMenuAction.ZoomIn:
+                await ZoomInAsync();
+                break;
+            case MobileMenuAction.ScrollContinuous:
+                await SetScrollModeAsync(PdfScrollMode.Continuous);
+                break;
+            case MobileMenuAction.ScrollSingle:
+                await SetScrollModeAsync(PdfScrollMode.SinglePage);
+                break;
+            case MobileMenuAction.Search:
+                await OpenFindAsync();
+                break;
+            case MobileMenuAction.Bookmarks:
+                await ToggleBookmarks();
+                break;
+            case MobileMenuAction.Thumbs:
+                await ToggleThumbsAsync();
+                break;
+            case MobileMenuAction.Fullscreen:
+                await ToggleImmersiveAsync();
+                break;
+            case MobileMenuAction.Share:
+                await ShareAsync();
+                break;
+            case MobileMenuAction.Open:
+                await OpenPickerAsync();
+                break;
+        }
+    }
+
+    private async Task ToggleFindAsync()
+    {
+        if (_showSearch)
+        {
+            await CloseFindAsync();
+        }
+        else
+        {
+            await OpenFindAsync();
+        }
+    }
+
+    private async Task OpenFindAsync()
+    {
+        _showSearch = true;
+        StateHasChanged();
+        try
+        {
+            await _findInputRef.FocusAsync();
+        }
+        catch
+        {
+            // foco opcional
+        }
+
+        if (!string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            await RunSearchAsync();
+        }
+    }
+
+    private async Task CloseFindAsync()
+    {
+        _showSearch = false;
+        _searched = false;
+        _searching = false;
+        _currentMatchIndex = -1;
+        _searchResults = [];
+        _searchDebounceCts?.Cancel();
+        try
+        {
+            await JS.InvokeVoidAsync("okutangaPdfReader.cancelSearch");
+        }
+        catch
+        {
+            // circuito pode estar a fechar
+        }
+        StateHasChanged();
+    }
+
+    private async Task OnSearchQueryChanged()
+    {
+        _searchDebounceCts?.Cancel();
+        _searchDebounceCts = new CancellationTokenSource();
+        var token = _searchDebounceCts.Token;
+
+        try
+        {
+            await Task.Delay(350, token);
+            await RunSearchAsync();
+        }
+        catch (TaskCanceledException)
+        {
+            // nova pesquisa em curso
+        }
+    }
+
+    private async Task FindKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            await CloseFindAsync();
+            return;
+        }
+
+        if (e.Key == "Enter")
+        {
+            if (e.ShiftKey)
+            {
+                await FindPreviousAsync();
+            }
+            else
+            {
+                if (_searchResults.Count == 0)
+                {
+                    await RunSearchAsync();
+                }
+                else
+                {
+                    await FindNextAsync();
+                }
+            }
+        }
+    }
+
+    private async Task RunSearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            _searched = false;
+            _searchResults = [];
+            _currentMatchIndex = -1;
+            StateHasChanged();
+            return;
+        }
+
+        var generation = ++_searchGeneration;
+        _searching = true;
+        _searched = false;
+        StateHasChanged();
+
+        try
+        {
+            var hits = await JS.InvokeAsync<List<PdfSearchMatch>>("okutangaPdfReader.searchAll", _searchQuery, 500);
+            if (generation != _searchGeneration) return;
+
+            _searchResults = hits ?? [];
+            _searched = true;
+            _currentMatchIndex = _searchResults.Count > 0 ? 0 : -1;
+
+            if (_currentMatchIndex >= 0)
+            {
+                await GoToMatchAsync(_currentMatchIndex);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (generation == _searchGeneration)
+            {
+                _searchResults = [];
+                _searched = true;
+                _currentMatchIndex = -1;
+                NotifyError("Pesquisa falhou.", ex.Message);
+            }
+        }
+        finally
+        {
+            if (generation == _searchGeneration)
+            {
+                _searching = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task FindNextAsync()
+    {
+        if (_searchResults.Count == 0)
+        {
+            await RunSearchAsync();
+            return;
+        }
+
+        _currentMatchIndex = (_currentMatchIndex + 1) % _searchResults.Count;
+        await GoToMatchAsync(_currentMatchIndex);
+        StateHasChanged();
+    }
+
+    private async Task FindPreviousAsync()
+    {
+        if (_searchResults.Count == 0) return;
+
+        _currentMatchIndex = _currentMatchIndex <= 0
+            ? _searchResults.Count - 1
+            : _currentMatchIndex - 1;
+        await GoToMatchAsync(_currentMatchIndex);
+        StateHasChanged();
+    }
+
+    private async Task GoToMatchAsync(int index)
+    {
+        if (index < 0 || index >= _searchResults.Count) return;
+        await GoToPageNumberAsync(_searchResults[index].PageNumber);
+    }
+
+    private void NotifyError(string summary, string? detail = null)
+    {
+        Notifications.Notify(new ToastMessage
+        {
+            Severity = ToastSeverity.Error,
+            Summary = summary,
+            Detail = detail,
+            Duration = 5000,
+        });
+    }
+
+    private async Task ToggleBookmarks()
+    {
+        _showBookmarks = !_showBookmarks;
+        if (!_showBookmarks || Session.Current is null) return;
+
+        try
+        {
+            await BookmarkStore.EnsureReadyAsync();
+            _bookmarks = (await BookmarkStore.GetForDocumentAsync(Session.Current.Id)).ToList();
+        }
+        catch (Exception ex)
+        {
+            NotifyError("Não foi possível carregar marcadores.", ex.Message);
+        }
+    }
+
+    private async Task ToggleThumbsAsync()
+    {
+        _showThumbs = !_showThumbs;
+        if (_showThumbs)
+        {
+            _thumbsNeedRender = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RenderVisibleThumbsAsync()
+    {
+        var count = Math.Min(_pageCount, 20);
+        for (var p = 1; p <= count; p++)
+        {
+            try
+            {
+                await JS.InvokeAsync<object>("okutangaPdfReader.renderThumbnail", p, ThumbCanvasId(p));
+            }
+            catch { /* miniatura opcional */ }
+        }
+    }
+
+    private async Task AddBookmarkAsync()
+    {
+        if (Session.Current is null) return;
+        try
+        {
+            await BookmarkStore.AddAsync(Session.Current.Id, _currentPage, $"Página {_currentPage}");
+            _bookmarks = (await BookmarkStore.GetForDocumentAsync(Session.Current.Id)).ToList();
+            Notifications.Notify(new ToastMessage
+            {
+                Severity = ToastSeverity.Success,
+                Summary = $"Marcador na página {_currentPage}",
+                Duration = 2500,
+            });
+        }
+        catch (Exception ex)
+        {
+            NotifyError("Não foi possível guardar o marcador.", ex.Message);
+        }
+    }
+
+    private async Task RemoveBookmarkAsync(int id)
+    {
+        try
+        {
+            await BookmarkStore.RemoveAsync(id);
+            if (Session.Current is not null)
+            {
+                _bookmarks = (await BookmarkStore.GetForDocumentAsync(Session.Current.Id)).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            NotifyError("Não foi possível remover o marcador.", ex.Message);
+        }
+    }
+
+    private async Task ShareAsync()
+    {
+        if (Session.Current is null) return;
+        try
+        {
+            await FileService.ShareAsync(Session.Current);
+        }
+        catch (Exception ex)
+        {
+            NotifyError("Não foi possível partilhar o ficheiro.", ex.Message);
+        }
+    }
+
+    public void Dispose()
+    {
+        SettingsService.SettingsChanged -= OnSettingsChanged;
+        KeepAwake.SetActive(false);
+        _searchDebounceCts?.Cancel();
+        _searchDebounceCts?.Dispose();
+        _dotNetRef?.Dispose();
+        try
+        {
+            _ = JS.InvokeVoidAsync("okutangaPdfReader.unwatchReaderViewport");
+            _ = JS.InvokeVoidAsync("okutangaPdfReader.setReaderLayout", "normal");
+            _ = JS.InvokeVoidAsync("okutangaPdfReader.exitFullscreen");
+            _ = JS.InvokeVoidAsync("okutangaPdfReader.dispose");
+        }
+        catch
+        {
+            // circuito Blazor pode já estar desmontado
+        }
+    }
+
+    private sealed class PdfLoadResult
+    {
+        public int PageCount { get; set; }
+    }
+}

@@ -55,7 +55,7 @@
 
         try
         {
-            var wentBack = await JSRuntime.InvokeAsync<bool>("olondongeTryHistoryBack");
+            var wentBack = await JSRuntime.InvokeAsync<bool>("okutangaTryHistoryBack");
             if (!wentBack)
                 Navigation.NavigateTo(FallbackBackHref);
         }

@@ -1,0 +1,59 @@
+<Project>
+  <!-- Antes do WinAppSDK chamar GetLatestMSVCVersion no VS Insiders (sem C++),
+       procurar MSVC noutras instalacoes Visual Studio (ex.: Build Tools 2022). -->
+  <UsingTask TaskName="okutangaPDFFindVCToolsInstallDir"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <VCToolsInstallDir ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+var roots = new[]
+{
+    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft Visual Studio\2022\BuildTools"),
+    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft Visual Studio\2022\Community"),
+    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft Visual Studio\2022\Professional"),
+    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft Visual Studio\2022\Enterprise"),
+    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft Visual Studio\2022\Community"),
+    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft Visual Studio\18\Insiders"),
+};
+
+string best = string.Empty;
+foreach (var root in roots)
+{
+    var msvcRoot = Path.Combine(root, @"VC\Tools\MSVC");
+    if (!Directory.Exists(msvcRoot))
+    {
+        continue;
+    }
+
+    var latest = Directory.EnumerateDirectories(msvcRoot).OrderBy(d => d).LastOrDefault();
+    if (latest is null)
+    {
+        continue;
+    }
+
+    var candidate = latest.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+    if (string.IsNullOrEmpty(best) || string.Compare(candidate, best, StringComparison.OrdinalIgnoreCase) > 0)
+    {
+        best = candidate;
+    }
+}
+
+VCToolsInstallDir = best;
+]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="okutangaPDFResolveVCToolsInstallDir"
+          BeforeTargets="GetVCInstallPath"
+          Condition="'$(VCToolsInstallDir)' == ''">
+    <okutangaPDFFindVCToolsInstallDir>
+      <Output TaskParameter="VCToolsInstallDir" PropertyName="VCToolsInstallDir" />
+    </okutangaPDFFindVCToolsInstallDir>
+  </Target>
+</Project>

@@ -1,33 +1,29 @@
-using Radzen;
+using OkutangaPDF.Models;
 
-namespace OlondongeApp.Services;
+namespace OkutangaPDF.Services;
 
-/// <summary>
-/// Implementação do serviço de notificações. Emite eventos para o componente Toaster exibir as mensagens.
-/// </summary>
-public sealed class AppNotificationService : IAppNotificationService
+public interface IAppNotificationService
 {
-    private readonly List<Action<NotificationMessage>> _listeners = new();
+    void Notify(ToastMessage message);
 
-    public void Notify(NotificationMessage message)
-    {
-        foreach (var listener in _listeners.ToList())
-        {
-            listener.Invoke(message);
-        }
-    }
+    void AddListener(Action<ToastMessage> handler);
 
-    public void AddListener(Action<NotificationMessage> handler)
-    {
-        if (!_listeners.Contains(handler))
-        {
-            _listeners.Add(handler);
-        }
-    }
-
-    public void RemoveListener(Action<NotificationMessage> handler)
-    {
-        _listeners.Remove(handler);
-    }
+    void RemoveListener(Action<ToastMessage> handler);
 }
 
+public sealed class AppNotificationService : IAppNotificationService
+{
+    private readonly List<Action<ToastMessage>> _listeners = [];
+
+    public void Notify(ToastMessage message)
+    {
+        foreach (var listener in _listeners.ToArray())
+        {
+            listener(message);
+        }
+    }
+
+    public void AddListener(Action<ToastMessage> handler) => _listeners.Add(handler);
+
+    public void RemoveListener(Action<ToastMessage> handler) => _listeners.Remove(handler);
+}

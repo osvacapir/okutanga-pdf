@@ -1,5 +1,4 @@
 @implements IDisposable
-@using Radzen
 @inject IAppNotificationService NotificationService
 
 <div class="toaster-container">
@@ -22,8 +21,8 @@
 </div>
 
 @code {
-    private readonly List<ToastItem> _toasts = new();
-    private Action<NotificationMessage>? _handler;
+    private readonly List<ToastItem> _toasts = [];
+    private Action<ToastMessage>? _handler;
 
     protected override void OnInitialized()
     {
@@ -33,7 +32,7 @@
             _toasts.Add(item);
             _ = InvokeAsync(StateHasChanged);
 
-            var durationMs = Math.Max(1000, Convert.ToInt32(msg.Duration ?? 4000));
+            var durationMs = Math.Max(1000, msg.Duration);
             _ = Task.Run(async () =>
             {
                 await Task.Delay(durationMs).ConfigureAwait(false);
@@ -47,25 +46,25 @@
         NotificationService.AddListener(_handler);
     }
 
-    private static string GetSeverityClass(NotificationSeverity severity) => severity switch
+    private static string GetSeverityClass(ToastSeverity severity) => severity switch
     {
-        NotificationSeverity.Success => "toast-success",
-        NotificationSeverity.Error => "toast-error",
-        NotificationSeverity.Warning => "toast-warning",
+        ToastSeverity.Success => "toast-success",
+        ToastSeverity.Error => "toast-error",
+        ToastSeverity.Warning => "toast-warning",
         _ => "toast-info",
     };
 
-    private static string GetIcon(NotificationSeverity severity) => severity switch
+    private static string GetIcon(ToastSeverity severity) => severity switch
     {
-        NotificationSeverity.Success => "✓",
-        NotificationSeverity.Error => "✕",
-        NotificationSeverity.Warning => "!",
+        ToastSeverity.Success => "✓",
+        ToastSeverity.Error => "✕",
+        ToastSeverity.Warning => "!",
         _ => "i",
     };
 
     public void Dispose()
     {
-        if (_handler != null)
+        if (_handler is not null)
         {
             NotificationService.RemoveListener(_handler);
         }
@@ -74,7 +73,6 @@
     private sealed class ToastItem
     {
         public Guid Id { get; set; }
-        public NotificationMessage Message { get; set; } = null!;
+        public ToastMessage Message { get; set; } = null!;
     }
 }
-

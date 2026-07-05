@@ -1,4 +1,4 @@
-# Métricas de desempenho — OlondongeApp (MVP notas)
+# Métricas de desempenho — OkutangaPDF (MVP notas)
 
 Este documento define **o que medir**, **como medir** e **alvos (SLOs)** para garantir que a app se mantém rápida, estável e eficiente (rede, SQLite e UI).
 
@@ -60,7 +60,7 @@ Métricas:
 
 ### 2.4 SQLite / Cache local
 
-- **Tamanho do DB** (`olondonge_grades.db3`):
+- **Tamanho do DB** (`okutanga_pdf.db3`):
   - **Alvo**: ≤ **20 MB** típico; alertar acima de 50 MB (necessidade de limpeza/compactação)
 - **Registos**:
   - **grade_lines**: contagem total
@@ -113,7 +113,7 @@ Implementar logs estruturados (por ex. `ILogger`) com:
 - **Android Studio Profiler**:
   - CPU + Memory durante “Atualizar agora”
 - **Logcat**:
-  - filtrar por tag “Olondonge” e recolher durações
+  - filtrar por tag “okutangaPDF” e recolher durações
 
 ### 4.2 Medição por sessão (QA)
 
