@@ -3,6 +3,8 @@ Zetabyte.tech · Osvaldo Capir · osvacapir@gmail.com
 ================================================================================
 
 CONCLUÍDO NO REPOSITÓRIO
+[✓] Repositório GitHub: https://github.com/osvacapir/okutanga-pdf
+[✓] Nome de exibição: Okutanga PDF
 [✓] Testes unitários (25)
 [✓] Build Release Windows + Android
 [✓] Política de privacidade (/privacidade + wwwroot/legal/privacidade.html)
